@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="same-origin">
   <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>Canales</title>
   <script>
     // Modo oscuro por defecto; se recuerda la elección en este navegador.
@@ -32,7 +34,7 @@
   </nav>
   <form method="post" action="/logout" class="logout">
     <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar entre modo claro y oscuro"><span class="to-light">☀</span><span class="to-dark">☾</span></button>
-    <span class="muted"><%= user.name %></span>
+    <a class="muted" href="/account" title="Mi cuenta"><%= user.name %></a>
     <button class="link">Salir</button>
   </form>
 </header>

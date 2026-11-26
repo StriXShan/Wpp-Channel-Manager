@@ -55,6 +55,8 @@ export function openDb(dbPath) {
   const db = new DatabaseSync(dbPath);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA);
+  const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!userCols.includes('totp_secret')) db.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT');
   // Si el proceso se cortó en medio de un envío no sabemos si salió: se marca
   // como fallida para que alguien revise el canal antes de reintentar.
   db.prepare(

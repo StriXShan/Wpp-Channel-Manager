@@ -130,3 +130,5 @@ details summary { cursor: pointer; color: var(--accent); }
 :root[data-theme=dark] .theme-toggle .to-light { display: inline; }
 :root[data-theme=dark] .theme-toggle .to-dark { display: none; }
 .floating-toggle { position: fixed; top: 12px; right: 12px; }
+.totp-qr { width: 220px; height: 220px; background: #fff; border-radius: 12px; padding: 8px; }
+code { background: var(--bg); padding: 1px 6px; border-radius: 6px; font-size: .9em; overflow-wrap: anywhere; }

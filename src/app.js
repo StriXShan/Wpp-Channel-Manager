@@ -13,6 +13,8 @@ import {
   requireAdmin,
   requireLogin,
 } from './auth.js';
+import { stripImageMetadata } from './images.js';
+import { newSecret, setupQr, verifyCode } from './totp.js';
 import { LoginLimiter, sameOrigin, securityHeaders } from './security.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -130,8 +132,88 @@ export function createApp({ db, wa, config }) {
       return res.status(401).render('login', { error: 'Usuario o contraseña incorrectos.' });
     }
     limiter.reset(req.ip, username);
+    if (user.totp_secret) {
+      // Contraseña correcta: falta el código de la app de verificación.
+      const token = crypto.randomBytes(24).toString('hex');
+      pending2fa.set(token, { userId: user.id, username, expires: Date.now() + 5 * 60000 });
+      return res.render('login-2fa', { token, error: null });
+    }
     createSession(db, res, user.id, config.secureCookies);
     res.redirect('/');
+  });
+
+  const pending2fa = new Map();
+
+  app.post('/login/2fa', (req, res) => {
+    const token = String(req.body.token || '');
+    const p = pending2fa.get(token);
+    if (!p || p.expires < Date.now()) {
+      pending2fa.delete(token);
+      return res.status(401).render('login', { error: 'Pasó demasiado tiempo. Ingresá de nuevo.' });
+    }
+    if (limiter.isBlocked(req.ip, p.username)) {
+      pending2fa.delete(token);
+      return res.status(429).render('login', { error: 'Demasiados intentos fallidos. Esperá 15 minutos y probá de nuevo.' });
+    }
+    const user = db.prepare('SELECT id, totp_secret FROM users WHERE id = ?').get(p.userId);
+    if (!user?.totp_secret || !verifyCode(user.totp_secret, req.body.code)) {
+      limiter.fail(req.ip, p.username);
+      return res.status(401).render('login-2fa', { token, error: 'Código incorrecto. Fijate que la hora del celular esté bien.' });
+    }
+    pending2fa.delete(token);
+    limiter.reset(req.ip, p.username);
+    createSession(db, res, user.id, config.secureCookies);
+    res.redirect('/');
+  });
+
+  app.get('/robots.txt', (req, res) => res.type('text/plain').send('User-agent: *\nDisallow: /\n'));
+
+  // ---------- Mi cuenta ----------
+
+  const accountData = (req) => db.prepare('SELECT id, username, totp_secret FROM users WHERE id = ?').get(req.user.id);
+
+  app.get('/account', requireLogin, async (req, res) => {
+    const me = accountData(req);
+    let setup = null;
+    if (!me.totp_secret) {
+      const secret = newSecret();
+      setup = { secret, qr: await setupQr(secret, me.username) };
+    }
+    res.render('account', { has2fa: Boolean(me.totp_secret), setup, error: null });
+  });
+
+  app.post('/account/2fa/enable', requireLogin, async (req, res) => {
+    const secret = String(req.body.secret || '');
+    if (!/^[A-Z2-7]{32}$/.test(secret) || !verifyCode(secret, req.body.code)) {
+      const me = accountData(req);
+      return res.status(400).render('account', {
+        has2fa: false,
+        setup: { secret, qr: await setupQr(secret, me.username) },
+        error: 'El código no coincide. Probá con el siguiente que muestre la app.',
+      });
+    }
+    db.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').run(secret, req.user.id);
+    back(res, '/account', 'Verificación en dos pasos activada.');
+  });
+
+  app.post('/account/2fa/disable', requireLogin, (req, res) => {
+    const me = accountData(req);
+    if (!me.totp_secret || !verifyCode(me.totp_secret, req.body.code)) {
+      return back(res, '/account', 'Código incorrecto.', true);
+    }
+    db.prepare('UPDATE users SET totp_secret = NULL WHERE id = ?').run(req.user.id);
+    back(res, '/account', 'Verificación en dos pasos desactivada.');
+  });
+
+  app.post('/account/password', requireLogin, (req, res) => {
+    const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+    const next = String(req.body.new_password || '');
+    if (!checkPassword(String(req.body.current_password || ''), row.password_hash)) {
+      return back(res, '/account', 'La contraseña actual no es correcta.', true);
+    }
+    if (next.length < 8) return back(res, '/account', 'La nueva contraseña necesita al menos 8 caracteres.', true);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(next), req.user.id);
+    back(res, '/account', 'Contraseña cambiada.');
   });
 
   app.post('/logout', (req, res) => {
@@ -275,7 +357,20 @@ export function createApp({ db, wa, config }) {
 
   const publishNow = (b) => b.action === 'now';
 
-  app.post('/posts', requireLogin, upload.single('image'), (req, res) => {
+  // Limpia los datos ocultos de la imagen recién subida (ubicación, celular, etc.).
+  const cleanUpload = async (req, res, next) => {
+    if (!req.file) return next();
+    try {
+      await stripImageMetadata(req.file.path, req.file.mimetype);
+      next();
+    } catch {
+      await fs.promises.unlink(req.file.path).catch(() => {});
+      req.file = null;
+      back(res, req.originalUrl === '/posts' ? '/posts/new' : `/posts`, 'No se pudo leer la imagen. Probá con otro archivo.', true);
+    }
+  };
+
+  app.post('/posts', requireLogin, upload.single('image'), cleanUpload, (req, res) => {
     if (publishNow(req.body)) req.body.scheduled_at = new Date().toISOString();
     const { post, error } = readPostForm(req);
     if (error) return res.status(400).render('post-form', { post, channels: channelOptions(), error, duplicated: false });
@@ -306,7 +401,7 @@ export function createApp({ db, wa, config }) {
     res.render('post-form', { post, channels: channelOptions(), error: null, duplicated: false });
   });
 
-  app.post('/posts/:id', requireLogin, upload.single('image'), (req, res) => {
+  app.post('/posts/:id', requireLogin, upload.single('image'), cleanUpload, (req, res) => {
     const existing = loadOwnPost(req, res);
     if (!existing) return;
     if (!editable(existing)) return back(res, '/posts', 'Esta publicación ya salió y no se puede editar.', true);
@@ -408,7 +503,7 @@ export function createApp({ db, wa, config }) {
   app.get('/users', requireAdmin, (req, res) => {
     const users = db
       .prepare(
-        `SELECT u.id, u.username, u.name, u.role,
+        `SELECT u.id, u.username, u.name, u.role, u.totp_secret IS NOT NULL AS has2fa,
          (SELECT COUNT(*) FROM posts p WHERE p.created_by = u.id AND p.status = 'scheduled') AS pending
          FROM users u ORDER BY u.name`
       )
@@ -438,6 +533,11 @@ export function createApp({ db, wa, config }) {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), Number(req.params.id));
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(Number(req.params.id));
     back(res, '/users', 'Contraseña cambiada.');
+  });
+
+  app.post('/users/:id/reset-2fa', requireAdmin, (req, res) => {
+    db.prepare('UPDATE users SET totp_secret = NULL WHERE id = ?').run(Number(req.params.id));
+    back(res, '/users', 'Se quitó la verificación en dos pasos. La persona puede volver a activarla en "Mi cuenta".');
   });
 
   app.post('/users/:id/delete', requireAdmin, (req, res) => {

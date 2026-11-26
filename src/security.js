@@ -3,6 +3,7 @@ export function securityHeaders(req, res, next) {
   res.set({
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
+    'X-Robots-Tag': 'noindex, nofollow',
     'Referrer-Policy': 'same-origin',
     'Content-Security-Policy':
       "default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",

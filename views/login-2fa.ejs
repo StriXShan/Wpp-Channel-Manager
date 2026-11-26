@@ -1,0 +1,12 @@
+<%- include('partials/head', { title: 'Verificación' }) %>
+<div class="card">
+  <h1>Código de verificación</h1>
+  <p class="muted">Abrí tu app de verificación (Google Authenticator, Authy u otra) y escribí el código de 6 números.</p>
+  <% if (error) { %><div class="notice error"><%= error %></div><% } %>
+  <form method="post" action="/login/2fa" class="stack">
+    <input type="hidden" name="token" value="<%= token %>">
+    <label>Código <input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus></label>
+    <button class="primary">Entrar</button>
+  </form>
+</div>
+<%- include('partials/foot') %>

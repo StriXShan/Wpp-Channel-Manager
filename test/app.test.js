@@ -72,3 +72,19 @@ test('reconoce links de canales', () => {
   assert.equal(parseChannelInvite('https://whatsapp.com/channel/0029VaABCdef123'), '0029VaABCdef123');
   assert.equal(parseChannelInvite('hola'), null);
 });
+
+test('verificación en dos pasos al entrar', async () => {
+  const { TOTP, Secret } = await import('otpauth');
+  const secret = new Secret({ size: 20 }).base32;
+  db.prepare("UPDATE users SET totp_secret = ? WHERE username = 'ana'").run(secret);
+  const step1 = await req('POST', '/login', { body: { username: 'ana', password: 'secreto123' } });
+  assert.equal(step1.cookie, undefined, 'sin código no hay sesión');
+  const token = step1.text.match(/name="token" value="([a-f0-9]+)"/)[1];
+  const wrong = await req('POST', '/login/2fa', { body: { token, code: '000000' } });
+  assert.equal(wrong.res.status, 401);
+  const code = new TOTP({ secret: Secret.fromBase32(secret) }).generate();
+  const ok = await req('POST', '/login/2fa', { body: { token, code } });
+  assert.equal(ok.res.status, 302);
+  assert.ok(ok.cookie);
+  assert.equal((await req('GET', '/robots.txt')).text, 'User-agent: *\nDisallow: /\n');
+});

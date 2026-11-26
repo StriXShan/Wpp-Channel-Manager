@@ -43,7 +43,14 @@ Para usarlo desde afuera conviene ponerle un dominio con HTTPS (por ejemplo con 
 
 La carpeta `data/whatsapp` contiene las sesiones de los números: quien la tenga puede publicar como ellos. Tratala como una contraseña.
 
-Lo que ya trae el panel: contraseñas cifradas (bcrypt), cookies de sesión `HttpOnly`, bloqueo de 15 minutos después de 5 intentos de login fallidos, rechazo de formularios enviados desde otros sitios y encabezados de seguridad.
+Lo que ya trae el panel:
+
+- Contraseñas cifradas (bcrypt) y cookies de sesión `HttpOnly`.
+- **Verificación en dos pasos** opcional por usuario (en "Mi cuenta"), con cualquier app de códigos. Un administrador puede quitarla si alguien pierde el celular.
+- Bloqueo de 15 minutos después de 5 intentos de login fallidos.
+- Rechazo de formularios enviados desde otros sitios y encabezados de seguridad.
+- **Fotos sin datos ocultos:** al subir una imagen se borran la ubicación GPS, el modelo del celular, la fecha y demás datos EXIF antes de guardarla. WhatsApp publica las imágenes de canales tal cual, así que sin esto esos datos llegarían a los seguidores.
+- El panel pide a los buscadores que no lo indexen y no guarda registros de IP de quienes entran.
 
 Lo que conviene hacer al instalarlo:
 
@@ -52,6 +59,16 @@ Lo que conviene hacer al instalarlo:
 3. **Firewall:** con `ufw`, dejá abierto solo SSH (y 443 si usás HTTPS público). Entrá por SSH con llave, no con contraseña.
 4. **Copias de seguridad:** copia diaria y cifrada de la carpeta `data/` fuera del VPS.
 5. **Actualizaciones:** mantené al día el sistema del VPS y, cada tanto, Baileys (`npm update baileys`), porque WhatsApp cambia seguido.
+
+### Privacidad del equipo
+
+Lo que ven los seguidores de un canal es el nombre, la foto y las publicaciones del canal. WhatsApp no les muestra los números de los administradores. Para reducir lo que se puede vincular con el equipo:
+
+- **Números:** registrados a nombre de la empresa, con un nombre y una foto de perfil neutros, y en Privacidad: "Última vez", "Foto de perfil", "Info" y "Grupos" en *Nadie* o *Mis contactos*.
+- **Contenido:** revisá que las imágenes no muestren datos en pantalla (capturas con nombres, notificaciones, direcciones). El panel borra los datos ocultos, pero no lo que se ve en la imagen.
+- **Servidor:** cifrado de disco si el proveedor lo ofrece, y acceso solo por SSH con llave. Si usan dominio propio, activá la privacidad del WHOIS. Con Tailscale ni siquiera hace falta dominio.
+
+Límites: WhatsApp sabe qué números administran cada canal y el proveedor del VPS sabe quién lo paga. Esto no se puede ocultar.
 
 **IP frente a WhatsApp:** la conexión sale con la IP del VPS. Pasarla por un proxy residencial puede bajar algo las sospechas, pero no evita bloqueos: WhatsApp mira sobre todo el comportamiento. Por ahora no está incluido; se puede sumar como opción si algún número tiene problemas.
 
