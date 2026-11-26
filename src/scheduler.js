@@ -1,14 +1,42 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
 
-/** Arma el mensaje de WhatsApp según el tipo de publicación. */
-export function buildMessage(post, uploadsDir) {
-  if (post.type === 'text') return { text: post.text };
+/**
+ * Arma los mensajes de WhatsApp de una publicación. Casi siempre es uno solo;
+ * una encuesta con imagen son dos seguidos: primero la imagen y abajo la encuesta.
+ * `raw` indica un mensaje armado a mano (cuestionario), que no tiene atajo en Baileys.
+ */
+export function buildMessages(post, uploadsDir) {
+  if (post.type === 'text') return [{ label: 'el texto', content: { text: post.text } }];
   if (post.type === 'image') {
-    return { image: { url: path.join(uploadsDir, post.image_path) }, caption: post.text || undefined };
+    return [{ label: 'la imagen', content: { image: { url: path.join(uploadsDir, post.image_path) }, caption: post.text || undefined } }];
   }
   if (post.type === 'poll') {
     const values = JSON.parse(post.poll_options || '[]');
-    return { poll: { name: post.text, values, selectableCount: post.poll_multi ? values.length : 1 } };
+    const steps = [];
+    if (post.image_path) {
+      steps.push({ label: 'la imagen', content: { image: { url: path.join(uploadsDir, post.image_path) } } });
+    }
+    if (post.poll_correct !== null && post.poll_correct !== undefined) {
+      steps.push({
+        label: 'el cuestionario',
+        raw: true,
+        content: {
+          messageContextInfo: { messageSecret: crypto.randomBytes(32) },
+          pollCreationMessageV5: {
+            name: post.text,
+            options: values.map((optionName) => ({ optionName })),
+            selectableOptionsCount: 1,
+            pollType: 1, // QUIZ
+            correctAnswer: { optionName: values[post.poll_correct] },
+          },
+        },
+      });
+    } else {
+      // selectableCount 0 = se pueden elegir varias opciones.
+      steps.push({ label: 'la encuesta', content: { poll: { name: post.text, values, selectableCount: post.poll_multi ? 0 : 1 } } });
+    }
+    return steps;
   }
   throw new Error(`Tipo de publicación desconocido: ${post.type}`);
 }
@@ -71,13 +99,26 @@ export class Scheduler {
       .prepare("UPDATE posts SET status = 'sending', updated_at = ? WHERE id = ? AND status = 'scheduled'")
       .run(this.now(), post.id);
     if (claimed.changes === 0) return;
+    const done = [];
     try {
-      await this.wa.send(post.number_id, post.jid, buildMessage(post, this.uploadsDir));
+      const steps = buildMessages(post, this.uploadsDir);
+      for (const [i, step] of steps.entries()) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 1500));
+        try {
+          if (step.raw) await this.wa.sendRaw(post.number_id, post.jid, step.content);
+          else await this.wa.send(post.number_id, post.jid, step.content);
+        } catch (err) {
+          err.step = step.label;
+          throw err;
+        }
+        done.push(step.label);
+      }
       this.db
         .prepare("UPDATE posts SET status = 'sent', sent_at = ?, error = NULL, updated_at = ? WHERE id = ?")
         .run(this.now(), this.now(), post.id);
     } catch (err) {
-      this.fail(post.id, `No se pudo publicar: ${err.message}`);
+      const partial = done.length ? ` Ya se había publicado ${done.join(' y ')}: revisá el canal antes de reintentar.` : '';
+      this.fail(post.id, `No se pudo publicar ${err.step || ''}: ${err.message}.${partial}`.replace(/\s+:/, ':'));
     }
   }
 

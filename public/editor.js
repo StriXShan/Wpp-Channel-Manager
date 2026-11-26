@@ -6,6 +6,7 @@
   const pvText = document.getElementById('pv-text');
   const pvImage = document.getElementById('pv-image');
   const pvPoll = document.getElementById('pv-poll');
+  const correct = document.getElementById('correct-input');
 
   const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   // Aproximación del formato de WhatsApp para la vista previa.
@@ -22,16 +23,29 @@
 
   function render() {
     const t = type();
+    const kind = form.querySelector('input[name=poll_kind]:checked')?.value || 'poll';
     form.dataset.type = t;
+    form.dataset.kind = t === 'poll' ? kind : '';
+    const opts = options.value.split('\n').map((s) => s.trim()).filter(Boolean);
+    const current = correct.value || correct.dataset.selected;
+    correct.innerHTML = '<option value="">Elegí la correcta</option>';
+    opts.forEach((o) => {
+      const el = document.createElement('option');
+      el.value = el.textContent = o;
+      if (o === current) el.selected = true;
+      correct.appendChild(el);
+    });
     document.querySelectorAll('.label-text').forEach((el) => (el.textContent = el.dataset[t]));
     pvText.innerHTML = format(text.value) || '<span class="muted">Tu publicación</span>';
     pvText.classList.toggle('poll-question', t === 'poll');
-    pvImage.hidden = t !== 'image' || !pvImage.getAttribute('src');
+    const removeImage = form.querySelector('input[name=remove_image]')?.checked;
+    pvImage.hidden = t === 'text' || removeImage || !pvImage.getAttribute('src');
     pvPoll.innerHTML = '';
     if (t === 'poll') {
-      options.value.split('\n').map((s) => s.trim()).filter(Boolean).forEach((o) => {
+      opts.forEach((o) => {
         const li = document.createElement('li');
         li.textContent = o;
+        if (kind === 'quiz' && o === correct.value) li.className = 'correct';
         pvPoll.appendChild(li);
       });
     }

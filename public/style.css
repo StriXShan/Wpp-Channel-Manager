@@ -94,7 +94,9 @@ button.link.danger { color: var(--danger); }
 .types legend { font-weight: 500; margin-bottom: 4px; }
 .pill { flex-direction: row; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 99px; font-weight: 400; cursor: pointer; }
 .pill:has(input:checked) { border-color: var(--accent); background: var(--ok-bg); }
-#post-form:not([data-type=image]) .only-image,
+#post-form[data-type=text] .only-media,
+#post-form:not([data-kind=quiz]) .only-quiz,
+#post-form[data-type=poll][data-kind=quiz] .only-not-quiz,
 #post-form:not([data-type=poll]) .only-poll,
 #post-form:not([data-type=text]) .only-text { display: none; }
 .preview-wrap { position: sticky; top: 16px; }
@@ -132,3 +134,5 @@ details summary { cursor: pointer; color: var(--accent); }
 .floating-toggle { position: fixed; top: 12px; right: 12px; }
 .totp-qr { width: 220px; height: 220px; background: #fff; border-radius: 12px; padding: 8px; }
 code { background: var(--bg); padding: 1px 6px; border-radius: 6px; font-size: .9em; overflow-wrap: anywhere; }
+.poll li.correct { border-color: var(--accent); font-weight: 600; }
+.poll li.correct::after { content: " ✓"; color: var(--accent); }

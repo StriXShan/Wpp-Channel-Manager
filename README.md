@@ -8,7 +8,7 @@ Panel web para programar publicaciones en canales de WhatsApp. Se vinculan uno o
 
 - **Números:** vincular varios WhatsApp, cada uno con su QR. La sesión queda guardada y se reconecta sola al reiniciar.
 - **Canales:** se agregan pegando el link del canal (`https://whatsapp.com/channel/…`). El número tiene que ser administrador.
-- **Publicaciones:** texto (con formato de WhatsApp), imagen con texto al pie, o encuesta (2 a 12 opciones, una o varias respuestas). Vista previa mientras se escribe.
+- **Publicaciones:** texto (con formato de WhatsApp), imagen con texto al pie, o encuesta (2 a 12 opciones, una o varias respuestas). La encuesta puede llevar una imagen arriba (se publican seguidas) y puede ser un **cuestionario** con respuesta correcta (experimental). Vista previa mientras se escribe.
 - **Programación:** a la hora elegida se publica sola. Botón "Publicar ahora" para probar.
 - **Próximas, Historial y Biblioteca:** agenda por día, lo publicado o fallido con el motivo, y todo lo cargado con buscador. Cualquier publicación se puede duplicar para reusarla.
 - **Usuarios:** rol *Contenidos* (carga y ve sus publicaciones) y rol *Administrador* (ve las de todos, maneja números, canales y usuarios).
@@ -91,5 +91,6 @@ npm test
 ## Pendiente
 
 - Confirmar con un número real que imágenes y encuestas se publican bien en canales.
-- Cuestionarios y preguntas: Baileys no los soporta todavía; quedan como mejora a futuro.
+- Cuestionarios: se envían armando el mensaje a mano porque Baileys no tiene la opción. Hay que confirmar en la prueba que WhatsApp los acepta en canales.
+- Preguntas de canal (respuestas abiertas de los seguidores): el formato del mensaje no es público todavía; queda como mejora a futuro.
 - Funcionalidades aprobadas para la siguiente etapa: aprobación antes de publicar, plantillas, carga masiva, misma publicación en varios canales, resultados de encuestas, avisos por WhatsApp o mail y sugerencia de horarios.

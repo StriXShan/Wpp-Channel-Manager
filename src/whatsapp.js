@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import pino from 'pino';
 import QRCode from 'qrcode';
-import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from 'baileys';
+import makeWASocket, { Browsers, DisconnectReason, proto, useMultiFileAuthState } from 'baileys';
 
 const logger = pino({ level: process.env.WA_LOG_LEVEL || 'warn' });
 
@@ -163,6 +163,11 @@ export class WhatsAppManager {
 
   async send(numberId, jid, content) {
     return this.socket(numberId).sendMessage(jid, content);
+  }
+
+  /** Envía un mensaje armado a mano (por ejemplo, un cuestionario). */
+  async sendRaw(numberId, jid, message) {
+    return this.socket(numberId).relayMessage(jid, proto.Message.fromObject(message), {});
   }
 }
 

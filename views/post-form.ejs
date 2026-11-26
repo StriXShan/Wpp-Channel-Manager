@@ -24,11 +24,12 @@
       <% }) %>
     </fieldset>
 
-    <label class="only-image">Imagen (JPG, PNG o WEBP, hasta 10 MB)
+    <label class="only-media"><span class="label-text" data-image="Imagen (JPG, PNG o WEBP, hasta 10 MB)" data-poll="Imagen arriba de la encuesta (opcional)">Imagen</span>
       <input type="file" name="image" accept="image/jpeg,image/png,image/webp" id="image-input">
       <% if (post.image_path) { %>
         <input type="hidden" name="keep_image" value="<%= post.image_path %>">
         <span class="muted">Si no elegís otra, se usa la imagen actual.</span>
+        <label class="check only-poll"><input type="checkbox" name="remove_image" value="1"> Sacar la imagen</label>
       <% } %>
     </label>
 
@@ -37,10 +38,20 @@
       <span class="muted only-text">Formato de WhatsApp: *negrita*, _cursiva_, ~tachado~.</span>
     </label>
 
+    <fieldset class="types only-poll">
+      <legend>Formato</legend>
+      <label class="pill"><input type="radio" name="poll_kind" value="poll" <%= post.poll_correct === null || post.poll_correct === undefined ? 'checked' : '' %>> Encuesta</label>
+      <label class="pill"><input type="radio" name="poll_kind" value="quiz" <%= post.poll_correct !== null && post.poll_correct !== undefined ? 'checked' : '' %>> Cuestionario (con respuesta correcta)</label>
+    </fieldset>
+    <p class="muted small only-quiz">El cuestionario es experimental: WhatsApp no lo permite oficialmente por esta vía y hay que confirmarlo en la prueba con un canal real.</p>
+
     <label class="only-poll">Opciones (una por renglón, de 2 a 12)
       <textarea name="poll_options" rows="4" id="options-input"><%= (post.poll_values || []).join('\n') %></textarea>
     </label>
-    <label class="only-poll check"><input type="checkbox" name="poll_multi" value="1" <%= post.poll_multi ? 'checked' : '' %>> Permitir elegir más de una opción</label>
+    <label class="only-poll only-not-quiz check"><input type="checkbox" name="poll_multi" value="1" <%= post.poll_multi ? 'checked' : '' %>> Permitir elegir más de una opción</label>
+    <label class="only-quiz">Respuesta correcta
+      <select name="poll_correct" id="correct-input" data-selected="<%= post.poll_correct !== null && post.poll_correct !== undefined && post.poll_values ? post.poll_values[post.poll_correct] : '' %>"></select>
+    </label>
 
     <label>Día y hora
       <input type="datetime-local" name="scheduled_at" value="<%= toInput(post.scheduled_at) %>">

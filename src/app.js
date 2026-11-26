@@ -328,16 +328,18 @@ export function createApp({ db, wa, config }) {
     let imagePath = existing?.image_path || null;
     if (req.file) imagePath = req.file.filename;
     else if (b.keep_image) imagePath = path.basename(b.keep_image);
+    if (!req.file && b.remove_image) imagePath = null;
 
     const post = {
       ...(existing || {}),
       channel_id: channel?.id || '',
       type,
       text,
-      image_path: type === 'image' ? imagePath : null,
+      image_path: type === 'image' || type === 'poll' ? imagePath : null,
       poll_options: type === 'poll' ? JSON.stringify(pollValues) : null,
       poll_values: pollValues.length ? pollValues : ['', ''],
-      poll_multi: type === 'poll' && b.poll_multi ? 1 : 0,
+      poll_multi: type === 'poll' && b.poll_multi && b.poll_kind !== 'quiz' ? 1 : 0,
+      poll_correct: null,
       scheduled_at: Number.isNaN(when) ? null : when,
     };
 
@@ -351,6 +353,11 @@ export function createApp({ db, wa, config }) {
       error = 'La encuesta necesita entre 2 y 12 opciones, una por renglón.';
     } else if (type === 'poll' && new Set(pollValues).size !== pollValues.length) {
       error = 'Las opciones de la encuesta no pueden repetirse.';
+    }
+    if (type === 'poll' && b.poll_kind === 'quiz') {
+      const correct = pollValues.indexOf(String(b.poll_correct || '').trim());
+      if (correct >= 0) post.poll_correct = correct;
+      else if (!error) error = 'Elegí cuál es la respuesta correcta del cuestionario.';
     }
     return { post, error };
   }
@@ -376,9 +383,9 @@ export function createApp({ db, wa, config }) {
     if (error) return res.status(400).render('post-form', { post, channels: channelOptions(), error, duplicated: false });
     const now = Date.now();
     db.prepare(
-      `INSERT INTO posts (channel_id, type, text, image_path, poll_options, poll_multi, scheduled_at, status, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?)`
-    ).run(post.channel_id, post.type, post.text, post.image_path, post.poll_options, post.poll_multi, post.scheduled_at, req.user.id, now, now);
+      `INSERT INTO posts (channel_id, type, text, image_path, poll_options, poll_multi, poll_correct, scheduled_at, status, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?)`
+    ).run(post.channel_id, post.type, post.text, post.image_path, post.poll_options, post.poll_multi, post.poll_correct, post.scheduled_at, req.user.id, now, now);
     back(res, '/posts', publishNow(req.body) ? 'Publicación enviada a la cola. Sale en unos segundos.' : 'Publicación programada.');
   });
 
@@ -409,9 +416,9 @@ export function createApp({ db, wa, config }) {
     const { post, error } = readPostForm(req, existing);
     if (error) return res.status(400).render('post-form', { post, channels: channelOptions(), error, duplicated: false });
     db.prepare(
-      `UPDATE posts SET channel_id = ?, type = ?, text = ?, image_path = ?, poll_options = ?, poll_multi = ?,
+      `UPDATE posts SET channel_id = ?, type = ?, text = ?, image_path = ?, poll_options = ?, poll_multi = ?, poll_correct = ?,
        scheduled_at = ?, status = 'scheduled', error = NULL, updated_at = ? WHERE id = ? AND status != 'sending'`
-    ).run(post.channel_id, post.type, post.text, post.image_path, post.poll_options, post.poll_multi, post.scheduled_at, Date.now(), existing.id);
+    ).run(post.channel_id, post.type, post.text, post.image_path, post.poll_options, post.poll_multi, post.poll_correct, post.scheduled_at, Date.now(), existing.id);
     back(res, '/posts', 'Cambios guardados.');
   });
 

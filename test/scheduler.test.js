@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb } from '../src/db.js';
-import { Scheduler, buildMessage } from '../src/scheduler.js';
+import { Scheduler, buildMessages } from '../src/scheduler.js';
 
 function setup({ connected = true, failSend = false } = {}) {
   const db = openDb(':memory:');
@@ -61,12 +61,35 @@ test('un error al enviar queda registrado', async () => {
   assert.match(t.status(id).error, /boom/);
 });
 
-test('arma los mensajes de imagen y encuesta', () => {
-  assert.deepEqual(buildMessage({ type: 'image', text: 'pie', image_path: 'a.jpg' }, '/up'), {
-    image: { url: '/up/a.jpg' },
-    caption: 'pie',
-  });
-  assert.deepEqual(buildMessage({ type: 'poll', text: '¿Qué preferís?', poll_options: '["A","B","C"]', poll_multi: 0 }, '/up'), {
-    poll: { name: '¿Qué preferís?', values: ['A', 'B', 'C'], selectableCount: 1 },
-  });
+test('arma los mensajes de imagen, encuesta, encuesta con imagen y cuestionario', () => {
+  const contents = (post) => buildMessages(post, '/up').map((s) => s.content);
+  assert.deepEqual(contents({ type: 'image', text: 'pie', image_path: 'a.jpg' }), [{ image: { url: '/up/a.jpg' }, caption: 'pie' }]);
+  assert.deepEqual(contents({ type: 'poll', text: '¿Qué preferís?', poll_options: '["A","B","C"]', poll_multi: 0, poll_correct: null }), [
+    { poll: { name: '¿Qué preferís?', values: ['A', 'B', 'C'], selectableCount: 1 } },
+  ]);
+  const withImage = contents({ type: 'poll', text: '¿Cuál?', image_path: 'b.jpg', poll_options: '["A","B"]', poll_multi: 1, poll_correct: null });
+  assert.deepEqual(withImage, [{ image: { url: '/up/b.jpg' } }, { poll: { name: '¿Cuál?', values: ['A', 'B'], selectableCount: 0 } }]);
+  const [quiz] = buildMessages({ type: 'poll', text: '2+2', poll_options: '["3","4"]', poll_correct: 1 }, '/up');
+  assert.equal(quiz.raw, true);
+  assert.equal(quiz.content.pollCreationMessageV5.pollType, 1);
+  assert.deepEqual(quiz.content.pollCreationMessageV5.correctAnswer, { optionName: '4' });
+});
+
+test('si falla la encuesta después de la imagen, lo avisa', async () => {
+  const t = setup();
+  let calls = 0;
+  t.scheduler.wa.send = async (n, j, content) => {
+    calls++;
+    if (content.poll) throw new Error('rechazado');
+  };
+  const id = t.db
+    .prepare(
+      `INSERT INTO posts (channel_id, type, text, image_path, poll_options, scheduled_at, status, created_at, updated_at)
+       VALUES (1, 'poll', '¿Cuál?', 'x.jpg', '["A","B"]', 1, 'scheduled', 0, 0)`
+    )
+    .run().lastInsertRowid;
+  await t.scheduler.tick();
+  assert.equal(calls, 2);
+  assert.equal(t.status(id).status, 'failed');
+  assert.match(t.status(id).error, /No se pudo publicar la encuesta: rechazado\. Ya se había publicado la imagen/);
 });

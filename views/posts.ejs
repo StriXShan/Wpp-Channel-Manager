@@ -49,14 +49,14 @@
     <div class="post-time"><%= fmtTime(view === 'upcoming' ? p.scheduled_at : when) %></div>
     <div class="post-body">
       <div class="post-meta">
-        <span class="badge"><%= TYPE_LABELS[p.type] %></span>
+        <span class="badge"><%= p.type === 'poll' && p.poll_correct !== null ? 'Cuestionario' : TYPE_LABELS[p.type] %><%= p.type === 'poll' && p.image_path ? ' con imagen' : '' %></span>
         <span class="badge status"><%= STATUS_LABELS[p.status] %></span>
         <strong><%= p.channel_name %></strong>
         <span class="muted">desde <%= p.number_label %><% if (user.role === 'admin' && p.author) { %> · cargó <%= p.author %><% } %></span>
       </div>
       <% if (p.image_path) { %><img class="thumb" src="/uploads/<%= p.image_path %>" alt=""><% } %>
       <% if (p.text) { %><p class="post-text"><%= p.text.length > 280 ? p.text.slice(0, 280) + '…' : p.text %></p><% } %>
-      <% if (p.type === 'poll') { %><ul class="poll"><% p.poll_values.forEach(v => { %><li><%= v %></li><% }) %></ul><% } %>
+      <% if (p.type === 'poll') { %><ul class="poll"><% p.poll_values.forEach((v, i) => { %><li class="<%= p.poll_correct === i ? 'correct' : '' %>"><%= v %></li><% }) %></ul><% } %>
       <% if (p.status === 'failed' && p.error) { %><p class="error-text"><%= p.error %></p><% } %>
       <% if (canEdit(p)) { %>
       <div class="actions">

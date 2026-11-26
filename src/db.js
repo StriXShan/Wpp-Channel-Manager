@@ -57,6 +57,9 @@ export function openDb(dbPath) {
   db.exec(SCHEMA);
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (!userCols.includes('totp_secret')) db.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT');
+  const postCols = db.prepare('PRAGMA table_info(posts)').all().map((c) => c.name);
+  // Índice de la opción correcta cuando la encuesta es un cuestionario.
+  if (!postCols.includes('poll_correct')) db.exec('ALTER TABLE posts ADD COLUMN poll_correct INTEGER');
   // Si el proceso se cortó en medio de un envío no sabemos si salió: se marca
   // como fallida para que alguien revise el canal antes de reintentar.
   db.prepare(
