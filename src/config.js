@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
 
 // La zona horaria se fija antes de cualquier uso de Date para que los horarios
@@ -18,4 +19,7 @@ export const config = {
   maxDelayMinutes: Number(process.env.MAX_DELAY_MINUTES || 15),
   schedulerIntervalMs: Number(process.env.SCHEDULER_INTERVAL_MS || 20000),
   secureCookies: process.env.SECURE_COOKIES === 'true',
+  // Código para crear el primer administrador. Si no se define, se genera uno
+  // al arrancar y se muestra en los registros del servidor.
+  setupToken: process.env.SETUP_TOKEN || crypto.randomBytes(9).toString('base64url'),
 };

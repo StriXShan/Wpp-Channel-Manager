@@ -17,7 +17,7 @@ const wa = {
   logout: async () => {},
   resolveChannel: async () => ({ jid: '999@newsletter', name: 'Canal de prueba', invite: 'ABC' }),
 };
-const config = { uploadsDir: tmp, timezone: 'America/Argentina/Buenos_Aires', secureCookies: false };
+const config = { uploadsDir: tmp, timezone: 'America/Argentina/Buenos_Aires', secureCookies: false, setupToken: 'codigo-123' };
 const server = createApp({ db, wa, config }).listen(0);
 const base = `http://127.0.0.1:${server.address().port}`;
 test.after(() => server.close());
@@ -36,7 +36,9 @@ test('flujo completo: alta de admin, canal, publicación y permisos', async () =
   assert.equal((await req('GET', '/posts')).res.headers.get('location'), '/login');
   assert.equal((await req('GET', '/login')).res.headers.get('location'), '/setup');
 
-  const setup = await req('POST', '/setup', { body: { name: 'Thiago', username: 'thiago', password: 'secreto123' } });
+  const noToken = await req('POST', '/setup', { body: { name: 'Intruso', username: 'x', password: 'secreto123', setup_token: 'otro' } });
+  assert.equal(noToken.res.status, 403, 'sin el código de instalación no se crea el admin');
+  const setup = await req('POST', '/setup', { body: { name: 'Thiago', username: 'thiago', password: 'secreto123', setup_token: 'codigo-123' } });
   const admin = setup.cookie;
   assert.ok(admin);
 
@@ -62,6 +64,14 @@ test('flujo completo: alta de admin, canal, publicación y permisos', async () =
   assert.equal((await req('GET', `/posts/${post.id}/edit`, { cookie: ana })).res.status, 404);
 
   await req('POST', '/posts', { body: { channel_id: '1', type: 'text', text: 'Post de Ana', scheduled_at: '2030-01-02T10:00' }, cookie: ana });
+  // Ya hay usuarios: el alta inicial queda cerrada aunque se tenga el código.
+  await req('POST', '/setup', { body: { name: 'Otro', username: 'otro', password: 'secreto123', setup_token: 'codigo-123' } });
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE username = 'otro'").get().n, 0);
+  // Contenidos no puede darse rol de administrador.
+  const anaId = db.prepare("SELECT id FROM users WHERE username = 'ana'").get().id;
+  assert.equal((await req('POST', `/users/${anaId}/role`, { body: { role: 'admin' }, cookie: ana })).res.status, 403);
+  assert.equal(db.prepare('SELECT role FROM users WHERE id = ?').get(anaId).role, 'editor');
+
   // El administrador ve todo.
   const all = (await req('GET', '/posts', { cookie: admin })).text;
   assert.match(all, /Hola canal/);

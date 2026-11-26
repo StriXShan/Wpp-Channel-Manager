@@ -19,6 +19,8 @@ const scheduler = new Scheduler({
 const app = createApp({ db, wa, config });
 app.listen(config.port, () => {
   console.log(`Panel en http://localhost:${config.port} (zona horaria ${config.timezone})`);
+  const noUsers = db.prepare('SELECT COUNT(*) AS n FROM users').get().n === 0;
+  if (noUsers) console.log(`Primer uso: el código de instalación para crear el administrador es ${config.setupToken}`);
 });
 
 await wa.restoreAll(db.prepare('SELECT id FROM numbers').all().map((n) => n.id));

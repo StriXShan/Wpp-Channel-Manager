@@ -5,7 +5,11 @@
   <p class="muted">Creá el usuario administrador. Después vas a poder sumar al resto del equipo.</p>
   <% if (error) { %><div class="notice error"><%= error %></div><% } %>
   <form method="post" action="/setup" class="stack">
-    <label>Tu nombre <input name="name" required autofocus></label>
+    <label>Código de instalación
+      <input name="setup_token" required autocomplete="off">
+      <span class="muted small">Aparece en los registros del servidor al arrancar (por ejemplo, <code>docker compose logs</code>).</span>
+    </label>
+    <label>Tu nombre <input name="name" required></label>
     <label>Usuario <input name="username" autocomplete="username" required></label>
     <label>Contraseña (mínimo 8 caracteres) <input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
     <button class="primary">Crear administrador</button>

@@ -13,7 +13,7 @@ Panel web para programar publicaciones en canales de WhatsApp. Se vinculan uno o
 - **Publicaciones:** texto (con formato de WhatsApp), imagen con texto al pie, o encuesta (2 a 12 opciones, una o varias respuestas). La encuesta puede llevar una imagen arriba (se publican seguidas) y puede ser un **cuestionario** con respuesta correcta (experimental). Vista previa mientras se escribe.
 - **Programación:** a la hora elegida se publica sola. Botón "Publicar ahora" para probar.
 - **Próximas, Historial y Biblioteca:** agenda por día, lo publicado o fallido con el motivo, y todo lo cargado con buscador. Cualquier publicación se puede duplicar para reusarla.
-- **Usuarios:** rol *Contenidos* (carga y ve sus publicaciones) y rol *Administrador* (ve las de todos, maneja números, canales y usuarios).
+- **Usuarios:** rol *Contenidos* (carga y ve sus publicaciones) y rol *Administrador* (ve las de todos, maneja números, canales y usuarios). Nadie puede registrarse solo: el primer administrador se crea con el código de instalación y las demás cuentas, y sus roles, las crea y cambia un administrador.
 - **Fallas:** si un número está desconectado a la hora de publicar, se reintenta durante 15 minutos y después queda como "Falló" con el motivo, para reprogramarla.
 
 ## Probarlo en una computadora
@@ -25,7 +25,7 @@ npm install
 npm start
 ```
 
-Abrí http://localhost:3000, creá el usuario administrador y en **Números y canales** agregá un número de prueba y escaneá el QR desde el celular (WhatsApp → Dispositivos vinculados → Vincular un dispositivo).
+Abrí http://localhost:3000 y creá el usuario administrador. Te va a pedir el **código de instalación**, que aparece en la consola al arrancar (`Primer uso: el código de instalación…`). Después y en **Números y canales** agregá un número de prueba y escaneá el QR desde el celular (WhatsApp → Dispositivos vinculados → Vincular un dispositivo).
 
 ## Instalarlo en un VPS
 
@@ -37,7 +37,7 @@ cd Wpp-Channel-Manager
 docker compose up -d --build
 ```
 
-El panel queda en el puerto 3000. Los datos (base, sesiones de WhatsApp e imágenes) se guardan en la carpeta `data/`: **hacé copia de seguridad de esa carpeta**.
+El panel queda en el puerto 3000. Para crear el primer administrador necesitás el código de instalación que muestra `docker compose logs panel`. Así nadie que entre antes al servidor recién instalado puede quedarse con la cuenta de administrador. Los datos (base, sesiones de WhatsApp e imágenes) se guardan en la carpeta `data/`: **hacé copia de seguridad de esa carpeta**.
 
 Para usarlo desde afuera conviene ponerle un dominio con HTTPS (por ejemplo con Caddy o Nginx delante) y configurar `SECURE_COOKIES=true`.
 
@@ -83,6 +83,7 @@ Límites: WhatsApp sabe qué números administran cada canal y el proveedor del 
 | `TZ` | `America/Argentina/Buenos_Aires` | Zona horaria de los horarios cargados |
 | `MAX_DELAY_MINUTES` | `15` | Cuánto se reintenta una publicación si el número está desconectado |
 | `SECURE_COOKIES` | `false` | `true` si el panel está detrás de HTTPS |
+| `SETUP_TOKEN` | se genera al arrancar | Código para crear el primer administrador |
 
 ## Tests
 

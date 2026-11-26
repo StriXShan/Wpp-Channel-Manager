@@ -100,8 +100,19 @@ export function createApp({ db, wa, config }) {
     res.render('setup', { error: null });
   });
 
+  // El código de instalación evita que alguien que entre antes al servidor
+  // recién instalado se cree el primer administrador.
+  const setupTokenOk = (given) => {
+    const a = Buffer.from(String(given || '').trim());
+    const b = Buffer.from(config.setupToken || '');
+    return b.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+
   app.post('/setup', (req, res) => {
     if (hasUsers()) return res.redirect('/login');
+    if (!setupTokenOk(req.body.setup_token)) {
+      return res.status(403).render('setup', { error: 'El código de instalación no es correcto. Lo encontrás en los registros del servidor.' });
+    }
     const { name, username, password } = req.body;
     if (!name || !username || !password || password.length < 8) {
       return res.render('setup', { error: 'Completá todos los campos. La contraseña necesita al menos 8 caracteres.' });
@@ -545,6 +556,14 @@ export function createApp({ db, wa, config }) {
   app.post('/users/:id/reset-2fa', requireAdmin, (req, res) => {
     db.prepare('UPDATE users SET totp_secret = NULL WHERE id = ?').run(Number(req.params.id));
     back(res, '/users', 'Se quitó la verificación en dos pasos. La persona puede volver a activarla en "Mi cuenta".');
+  });
+
+  app.post('/users/:id/role', requireAdmin, (req, res) => {
+    const id = Number(req.params.id);
+    const role = req.body.role === 'admin' ? 'admin' : 'editor';
+    if (id === req.user.id) return back(res, '/users', 'No podés cambiar tu propio rol.', true);
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+    back(res, '/users', role === 'admin' ? 'Ahora es administrador.' : 'Ahora es de contenidos.');
   });
 
   app.post('/users/:id/delete', requireAdmin, (req, res) => {
