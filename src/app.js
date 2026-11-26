@@ -13,6 +13,7 @@ import {
   requireAdmin,
   requireLogin,
 } from './auth.js';
+import { LoginLimiter, sameOrigin, securityHeaders } from './security.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -58,6 +59,10 @@ export function createApp({ db, wa, config }) {
   app.set('view engine', 'ejs');
   app.set('views', path.join(root, 'views'));
   app.disable('x-powered-by');
+  // Detrás de Caddy o Nginx en el mismo servidor, para ver la IP real.
+  app.set('trust proxy', 'loopback');
+  app.use(securityHeaders);
+  app.use(sameOrigin);
   app.use(express.urlencoded({ extended: false }));
   app.use('/static', express.static(path.join(root, 'public')));
   app.use(loadUser(db));
@@ -112,12 +117,19 @@ export function createApp({ db, wa, config }) {
     res.render('login', { error: null });
   });
 
+  const limiter = new LoginLimiter();
+
   app.post('/login', (req, res) => {
     const username = String(req.body.username || '').trim().toLowerCase();
+    if (limiter.isBlocked(req.ip, username)) {
+      return res.status(429).render('login', { error: 'Demasiados intentos fallidos. Esperá 15 minutos y probá de nuevo.' });
+    }
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
     if (!user || !checkPassword(String(req.body.password || ''), user.password_hash)) {
+      limiter.fail(req.ip, username);
       return res.status(401).render('login', { error: 'Usuario o contraseña incorrectos.' });
     }
+    limiter.reset(req.ip, username);
     createSession(db, res, user.id, config.secureCookies);
     res.redirect('/');
   });

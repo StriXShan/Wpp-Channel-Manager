@@ -39,6 +39,22 @@ El panel queda en el puerto 3000. Los datos (base, sesiones de WhatsApp e imáge
 
 Para usarlo desde afuera conviene ponerle un dominio con HTTPS (por ejemplo con Caddy o Nginx delante) y configurar `SECURE_COOKIES=true`.
 
+## Seguridad
+
+La carpeta `data/whatsapp` contiene las sesiones de los números: quien la tenga puede publicar como ellos. Tratala como una contraseña.
+
+Lo que ya trae el panel: contraseñas cifradas (bcrypt), cookies de sesión `HttpOnly`, bloqueo de 15 minutos después de 5 intentos de login fallidos, rechazo de formularios enviados desde otros sitios y encabezados de seguridad.
+
+Lo que conviene hacer al instalarlo:
+
+1. **Panel solo accesible por VPN privada (recomendado).** Instalá [Tailscale](https://tailscale.com) en el VPS y en las computadoras y celulares del equipo, y no abras el puerto 3000 a internet. En `docker-compose.yml` cambiá `"3000:3000"` por `"127.0.0.1:3000:3000"` y entrá con `tailscale serve 3000` o con la IP de Tailscale del VPS.
+2. **Si el panel tiene que estar abierto a internet:** ponele un dominio con HTTPS (por ejemplo [Caddy](https://caddyserver.com): `reverse_proxy localhost:3000`), configurá `SECURE_COOKIES=true` y usá contraseñas largas.
+3. **Firewall:** con `ufw`, dejá abierto solo SSH (y 443 si usás HTTPS público). Entrá por SSH con llave, no con contraseña.
+4. **Copias de seguridad:** copia diaria y cifrada de la carpeta `data/` fuera del VPS.
+5. **Actualizaciones:** mantené al día el sistema del VPS y, cada tanto, Baileys (`npm update baileys`), porque WhatsApp cambia seguido.
+
+**IP frente a WhatsApp:** la conexión sale con la IP del VPS. Pasarla por un proxy residencial puede bajar algo las sospechas, pero no evita bloqueos: WhatsApp mira sobre todo el comportamiento. Por ahora no está incluido; se puede sumar como opción si algún número tiene problemas.
+
 ## Configuración
 
 | Variable | Por defecto | Para qué |
