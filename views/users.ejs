@@ -1,31 +1,28 @@
 <%- include('partials/head', { title: 'Usuarios' }) %>
 <div class="page-head"><h1>Usuarios</h1></div>
 
-<div class="card">
-  <h2>Sumar a alguien</h2>
-  <form method="post" action="/users" class="grid-form">
-    <label>Nombre <input name="name" required></label>
-    <label>Usuario <input name="username" required autocomplete="off"></label>
-    <label>Contraseña <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
-    <label>Rol
-      <select name="role">
-        <option value="editor">Contenidos: carga y programa sus publicaciones</option>
-        <option value="admin">Administrador: ve todo, maneja números y usuarios</option>
-      </select>
-    </label>
-    <button class="primary">Crear usuario</button>
-  </form>
-</div>
+<% const groups = [
+  { role: 'admin', title: 'Administradores', desc: 'Ven las publicaciones de todos y manejan números, canales y usuarios.', add: 'Agregar administrador', empty: '' },
+  { role: 'editor', title: 'Equipo de contenidos', desc: 'Cargan y programan sus publicaciones. Solo ven lo suyo.', add: 'Agregar a contenidos', empty: 'Todavía no hay nadie en contenidos.' },
+]; %>
 
-<div class="card">
+<% groups.forEach(g => { const list = users.filter(u => u.role === g.role); %>
+<section class="card">
+  <div class="page-head">
+    <div>
+      <h2><%= g.title %> <span class="muted">(<%= list.length %>)</span></h2>
+      <p class="muted small"><%= g.desc %></p>
+    </div>
+  </div>
+
+  <% if (!list.length) { %><p class="muted"><%= g.empty %></p><% } else { %>
   <table class="table">
-    <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Dos pasos</th><th>Programadas</th><th></th></tr></thead>
+    <thead><tr><th>Nombre</th><th>Usuario</th><th>Dos pasos</th><th>Programadas</th><th></th></tr></thead>
     <tbody>
-    <% users.forEach(u => { %>
+    <% list.forEach(u => { %>
       <tr>
-        <td><%= u.name %></td>
+        <td><%= u.name %><% if (u.id === user.id) { %> <span class="muted">(vos)</span><% } %></td>
         <td><%= u.username %></td>
-        <td><%= u.role === 'admin' ? 'Administrador' : 'Contenidos' %></td>
         <td><%= u.has2fa ? 'Activada' : 'No' %></td>
         <td><a href="/posts?author=<%= u.id %>"><%= u.pending %></a></td>
         <td class="actions">
@@ -40,7 +37,7 @@
             <form method="post" action="/users/<%= u.id %>/reset-2fa" onsubmit="return confirm('¿Quitar la verificación en dos pasos? Usalo si la persona perdió el celular.')"><button class="link">Quitar dos pasos</button></form>
           <% } %>
           <% if (u.id !== user.id) { %>
-            <form method="post" action="/users/<%= u.id %>/role">
+            <form method="post" action="/users/<%= u.id %>/role" onsubmit="return confirm('¿Cambiar el rol de este usuario?')">
               <input type="hidden" name="role" value="<%= u.role === 'admin' ? 'editor' : 'admin' %>">
               <button class="link"><%= u.role === 'admin' ? 'Pasar a contenidos' : 'Hacer administrador' %></button>
             </form>
@@ -51,5 +48,18 @@
     <% }) %>
     </tbody>
   </table>
-</div>
+  <% } %>
+
+  <details class="add-user">
+    <summary><%= g.add %></summary>
+    <form method="post" action="/users" class="grid-form">
+      <input type="hidden" name="role" value="<%= g.role %>">
+      <label>Nombre <input name="name" required></label>
+      <label>Usuario <input name="username" required autocomplete="off"></label>
+      <label>Contraseña <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+      <button class="primary">Crear</button>
+    </form>
+  </details>
+</section>
+<% }) %>
 <%- include('partials/foot') %>

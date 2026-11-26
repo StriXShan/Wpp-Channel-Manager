@@ -141,3 +141,7 @@ details summary { cursor: pointer; color: var(--accent); }
 code { background: var(--bg); padding: 1px 6px; border-radius: 6px; font-size: .9em; overflow-wrap: anywhere; }
 .poll li.correct { border-color: var(--accent); font-weight: 600; }
 .poll li.correct::after { content: " ✓"; color: var(--accent); }
+.add-user { margin-top: 12px; }
+.add-user summary { font-weight: 600; margin-bottom: 10px; }
+.card .page-head p { margin: 2px 0 0; }
+.table td.actions { margin-top: 0; }
