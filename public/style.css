@@ -37,7 +37,11 @@ h3 { font-size: 1rem; margin: 1rem 0 .5rem; }
 main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
 main.narrow { max-width: 420px; padding-top: 12vh; }
 .topbar { display: flex; align-items: center; gap: 24px; padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.brand { font-weight: 700; color: var(--text); text-decoration: none; }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: var(--text); text-decoration: none; letter-spacing: .3px; }
+.brand small { font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.auth-logo { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 20px; }
+.auth-logo div { display: flex; flex-direction: column; line-height: 1.2; }
+.auth-logo strong { font-size: 1.4rem; letter-spacing: .5px; }
 .topbar nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
 .topbar nav a { padding: 6px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; }
 .topbar nav a.active, .topbar nav a:hover { background: var(--bg); color: var(--text); }
@@ -116,6 +120,7 @@ button.link.danger { color: var(--danger); }
 details summary { cursor: pointer; color: var(--accent); }
 @media (max-width: 760px) {
   .topbar { gap: 8px 16px; }
+  .brand small { display: none; }
   .topbar nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; }
   .topbar nav a { white-space: nowrap; }
   .logout { margin-left: auto; }

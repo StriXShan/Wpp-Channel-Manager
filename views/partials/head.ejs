@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="same-origin">
-  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>Canales</title>
+  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>WCM</title>
+  <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#128c5e">
   <script>
     // Modo oscuro por defecto; se recuerda la elección en este navegador.
     (function () {
@@ -24,7 +26,7 @@
 <body>
 <% if (user) { %>
 <header class="topbar">
-  <a class="brand" href="/posts">Canales</a>
+  <a class="brand" href="/posts"><img src="/static/logo.svg" alt="" width="30" height="30"><span>WCM <small>Wpp Channel Manager</small></span></a>
   <nav>
     <a href="/posts" class="<%= path.startsWith('/posts') ? 'active' : '' %>">Publicaciones</a>
     <% if (user.role === 'admin') { %>

@@ -1,4 +1,6 @@
-# Wpp Channel Manager
+# WCM · Wpp Channel Manager
+
+<img src="public/logo.svg" alt="" width="72">
 
 Panel web para programar publicaciones en canales de WhatsApp. Se vinculan uno o más números escaneando un QR (como WhatsApp Web), se cargan publicaciones de texto, imagen o encuesta con día y hora, y el sistema las publica solo.
 
