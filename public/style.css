@@ -13,22 +13,20 @@
   --phone: #efeae2;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111513;
-    --card: #1a201d;
-    --text: #e8ece9;
-    --muted: #9aa59f;
-    --line: #2c3430;
-    --accent: #25b47a;
-    --accent-text: #08110c;
-    --danger: #f2877d;
-    --danger-bg: #3a1d1a;
-    --ok-bg: #173023;
-    --bubble: #1f2c26;
-    --phone: #0d1411;
-    color-scheme: dark;
-  }
+:root[data-theme=dark] {
+  --bg: #111513;
+  --card: #1a201d;
+  --text: #e8ece9;
+  --muted: #9aa59f;
+  --line: #2c3430;
+  --accent: #25b47a;
+  --accent-text: #08110c;
+  --danger: #f2877d;
+  --danger-bg: #3a1d1a;
+  --ok-bg: #173023;
+  --bubble: #1f2c26;
+  --phone: #0d1411;
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -126,3 +124,9 @@ details summary { cursor: pointer; color: var(--accent); }
   .table tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .table td { display: block; border: 0; padding: 2px 0; }
 }
+
+.theme-toggle { border: 1px solid var(--line); background: var(--card); width: 34px; height: 34px; padding: 0; border-radius: 99px; display: inline-grid; place-items: center; font-size: 16px; line-height: 1; }
+.theme-toggle .to-light { display: none; }
+:root[data-theme=dark] .theme-toggle .to-light { display: inline; }
+:root[data-theme=dark] .theme-toggle .to-dark { display: none; }
+.floating-toggle { position: fixed; top: 12px; right: 12px; }

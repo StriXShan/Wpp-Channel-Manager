@@ -4,6 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>Canales</title>
+  <script>
+    // Modo oscuro por defecto; se recuerda la elección en este navegador.
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('theme') || 'dark'; } catch (e) {}
+      document.documentElement.dataset.theme = t;
+    })();
+    function toggleTheme() {
+      var t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem('theme', t); } catch (e) {}
+    }
+  </script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -18,10 +31,13 @@
     <% } %>
   </nav>
   <form method="post" action="/logout" class="logout">
+    <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar entre modo claro y oscuro"><span class="to-light">☀</span><span class="to-dark">☾</span></button>
     <span class="muted"><%= user.name %></span>
     <button class="link">Salir</button>
   </form>
 </header>
+<% } else { %>
+<button type="button" class="theme-toggle floating-toggle" onclick="toggleTheme()" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar entre modo claro y oscuro"><span class="to-light">☀</span><span class="to-dark">☾</span></button>
 <% } %>
 <main class="<%= user ? '' : 'narrow' %>">
 <% if (flash) { %><div class="notice ok"><%= flash %></div><% } %>
