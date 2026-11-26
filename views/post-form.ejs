@@ -1,0 +1,67 @@
+<%- include('partials/head', { title: post.id ? 'Editar publicación' : 'Nueva publicación' }) %>
+<div class="page-head">
+  <h1><%= post.id ? 'Editar publicación' : 'Nueva publicación' %></h1>
+  <a href="/posts">Volver</a>
+</div>
+<% if (duplicated) { %><div class="notice">Copiaste una publicación anterior. Revisá el contenido y elegí el nuevo horario.</div><% } %>
+<% if (error) { %><div class="notice error"><%= error %></div><% } %>
+
+<div class="editor">
+  <form method="post" action="<%= post.id ? '/posts/' + post.id : '/posts' %>" enctype="multipart/form-data" class="stack card" id="post-form">
+    <label>Canal
+      <select name="channel_id" required>
+        <option value="">Elegí un canal</option>
+        <% channels.forEach(c => { %>
+          <option value="<%= c.id %>" <%= String(c.id) === String(post.channel_id) ? 'selected' : '' %>><%= c.name %> (desde <%= c.number_label %>)</option>
+        <% }) %>
+      </select>
+    </label>
+
+    <fieldset class="types">
+      <legend>Tipo</legend>
+      <% Object.entries(TYPE_LABELS).forEach(([k, label]) => { %>
+        <label class="pill"><input type="radio" name="type" value="<%= k %>" <%= post.type === k ? 'checked' : '' %>> <%= label %></label>
+      <% }) %>
+    </fieldset>
+
+    <label class="only-image">Imagen (JPG, PNG o WEBP, hasta 10 MB)
+      <input type="file" name="image" accept="image/jpeg,image/png,image/webp" id="image-input">
+      <% if (post.image_path) { %>
+        <input type="hidden" name="keep_image" value="<%= post.image_path %>">
+        <span class="muted">Si no elegís otra, se usa la imagen actual.</span>
+      <% } %>
+    </label>
+
+    <label><span class="label-text" data-text="Texto" data-image="Texto al pie (opcional)" data-poll="Pregunta">Texto</span>
+      <textarea name="text" rows="6" id="text-input"><%= post.text %></textarea>
+      <span class="muted only-text">Formato de WhatsApp: *negrita*, _cursiva_, ~tachado~.</span>
+    </label>
+
+    <label class="only-poll">Opciones (una por renglón, de 2 a 12)
+      <textarea name="poll_options" rows="4" id="options-input"><%= (post.poll_values || []).join('\n') %></textarea>
+    </label>
+    <label class="only-poll check"><input type="checkbox" name="poll_multi" value="1" <%= post.poll_multi ? 'checked' : '' %>> Permitir elegir más de una opción</label>
+
+    <label>Día y hora
+      <input type="datetime-local" name="scheduled_at" value="<%= toInput(post.scheduled_at) %>">
+    </label>
+
+    <div class="row">
+      <button class="primary" name="action" value="schedule"><%= post.id ? 'Guardar cambios' : 'Programar' %></button>
+      <button name="action" value="now" onclick="return confirm('¿Publicar ahora mismo en el canal?')">Publicar ahora</button>
+    </div>
+  </form>
+
+  <aside class="preview-wrap">
+    <div class="muted small">Vista previa</div>
+    <div class="phone">
+      <div class="bubble">
+        <img id="pv-image" alt="" <%- post.image_path ? `src="/uploads/${post.image_path}"` : '' %>>
+        <div id="pv-text"></div>
+        <ul id="pv-poll" class="poll"></ul>
+      </div>
+    </div>
+  </aside>
+</div>
+<script src="/static/editor.js"></script>
+<%- include('partials/foot') %>

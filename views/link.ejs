@@ -1,0 +1,49 @@
+<%- include('partials/head', { title: 'Vincular número' }) %>
+<div class="page-head">
+  <h1>Vincular "<%= number.label %>"</h1>
+  <a href="/numbers">Volver</a>
+</div>
+<div class="card link-card">
+  <div id="qr-box" class="qr-box"><span class="muted">Generando el QR…</span></div>
+  <div>
+    <ol>
+      <li>Abrí WhatsApp en el celular de este número.</li>
+      <li>Entrá a <b>Dispositivos vinculados</b> y tocá <b>Vincular un dispositivo</b>.</li>
+      <li>Escaneá este código.</li>
+    </ol>
+    <p id="qr-status" class="muted">Esperando…</p>
+  </div>
+</div>
+<script>
+  (function () {
+    const box = document.getElementById('qr-box');
+    const status = document.getElementById('qr-status');
+    async function poll() {
+      try {
+        const r = await fetch('/numbers/<%= number.id %>/status');
+        const s = await r.json();
+        if (s.state === 'open') {
+          box.innerHTML = '<div class="big-ok">✓</div>';
+          status.textContent = 'Listo, el número quedó vinculado' + (s.phone ? ' (+' + s.phone + ')' : '') + '. Ahora agregá sus canales.';
+          setTimeout(() => (location.href = '/numbers?ok=' + encodeURIComponent('Número vinculado.')), 1500);
+          return;
+        }
+        if (s.state === 'qr' && s.qr) {
+          box.innerHTML = '<img alt="Código QR" src="' + s.qr + '">';
+          status.textContent = 'El código se renueva solo cada tanto. Escanealo cuando quieras.';
+        } else if (s.state === 'unlinked') {
+          box.innerHTML = '';
+          status.innerHTML = (s.error || 'No se pudo vincular.') + ' <a href="">Generar otro QR</a>';
+          return;
+        } else {
+          status.textContent = 'Conectando…';
+        }
+      } catch (e) {
+        status.textContent = 'Sin conexión con el servidor, reintentando…';
+      }
+      setTimeout(poll, 2000);
+    }
+    poll();
+  })();
+</script>
+<%- include('partials/foot') %>

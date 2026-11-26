@@ -1,0 +1,13 @@
+<%- include('partials/head', { title: 'Primer uso' }) %>
+<div class="card">
+  <h1>Bienvenido</h1>
+  <p class="muted">Creá el usuario administrador. Después vas a poder sumar al resto del equipo.</p>
+  <% if (error) { %><div class="notice error"><%= error %></div><% } %>
+  <form method="post" action="/setup" class="stack">
+    <label>Tu nombre <input name="name" required autofocus></label>
+    <label>Usuario <input name="username" autocomplete="username" required></label>
+    <label>Contraseña (mínimo 8 caracteres) <input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
+    <button class="primary">Crear administrador</button>
+  </form>
+</div>
+<%- include('partials/foot') %>

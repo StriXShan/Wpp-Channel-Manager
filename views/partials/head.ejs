@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>Canales</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<% if (user) { %>
+<header class="topbar">
+  <a class="brand" href="/posts">Canales</a>
+  <nav>
+    <a href="/posts" class="<%= path.startsWith('/posts') ? 'active' : '' %>">Publicaciones</a>
+    <% if (user.role === 'admin') { %>
+      <a href="/numbers" class="<%= path.startsWith('/numbers') ? 'active' : '' %>">Números y canales</a>
+      <a href="/users" class="<%= path.startsWith('/users') ? 'active' : '' %>">Usuarios</a>
+    <% } %>
+  </nav>
+  <form method="post" action="/logout" class="logout">
+    <span class="muted"><%= user.name %></span>
+    <button class="link">Salir</button>
+  </form>
+</header>
+<% } %>
+<main class="<%= user ? '' : 'narrow' %>">
+<% if (flash) { %><div class="notice ok"><%= flash %></div><% } %>
+<% if (flashError) { %><div class="notice error"><%= flashError %></div><% } %>

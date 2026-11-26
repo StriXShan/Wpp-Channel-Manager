@@ -1,0 +1,76 @@
+<%- include('partials/head', { title: 'Publicaciones' }) %>
+<div class="page-head">
+  <h1>Publicaciones</h1>
+  <a class="button primary" href="/posts/new">+ Nueva publicación</a>
+</div>
+
+<% if (!channels.length) { %>
+  <div class="notice">
+    Todavía no hay canales cargados.
+    <% if (user.role === 'admin') { %><a href="/numbers">Vinculá un número y agregá sus canales</a> para empezar.<% } else { %>Pedile a un administrador que vincule un número.<% } %>
+  </div>
+<% } %>
+
+<% if (failedCount && view !== 'history') { %>
+  <div class="notice error"><%= failedCount %> publicación<%= failedCount > 1 ? 'es' : '' %> no se pudo publicar. <a href="/posts?view=history">Ver el historial</a></div>
+<% } %>
+
+<nav class="tabs">
+  <a href="/posts" class="<%= view === 'upcoming' ? 'active' : '' %>">Próximas</a>
+  <a href="/posts?view=history" class="<%= view === 'history' ? 'active' : '' %>">Historial</a>
+  <a href="/posts?view=all" class="<%= view === 'all' ? 'active' : '' %>">Biblioteca</a>
+</nav>
+
+<form class="filters" method="get" action="/posts">
+  <input type="hidden" name="view" value="<%= view %>">
+  <input name="q" value="<%= q %>" placeholder="Buscar por texto">
+  <select name="channel">
+    <option value="">Todos los canales</option>
+    <% channels.forEach(c => { %><option value="<%= c.id %>" <%= String(c.id) === filters.channel ? 'selected' : '' %>><%= c.name %> (<%= c.number_label %>)</option><% }) %>
+  </select>
+  <% if (authors.length) { %>
+  <select name="author">
+    <option value="">Todas las personas</option>
+    <% authors.forEach(a => { %><option value="<%= a.id %>" <%= String(a.id) === filters.author ? 'selected' : '' %>><%= a.name %></option><% }) %>
+  </select>
+  <% } %>
+  <button>Filtrar</button>
+</form>
+
+<% if (!posts.length) { %>
+  <p class="empty"><%= view === 'upcoming' ? 'No hay publicaciones programadas.' : 'No hay publicaciones para mostrar.' %></p>
+<% } %>
+
+<% let lastDay = null; posts.forEach(p => {
+     const when = p.sent_at || p.scheduled_at;
+     const day = fmtDay(view === 'upcoming' ? p.scheduled_at : when); %>
+  <% if (day !== lastDay) { lastDay = day; %><h2 class="day"><%= day %></h2><% } %>
+  <article class="post status-<%= p.status %>">
+    <div class="post-time"><%= fmtTime(view === 'upcoming' ? p.scheduled_at : when) %></div>
+    <div class="post-body">
+      <div class="post-meta">
+        <span class="badge"><%= TYPE_LABELS[p.type] %></span>
+        <span class="badge status"><%= STATUS_LABELS[p.status] %></span>
+        <strong><%= p.channel_name %></strong>
+        <span class="muted">desde <%= p.number_label %><% if (user.role === 'admin' && p.author) { %> · cargó <%= p.author %><% } %></span>
+      </div>
+      <% if (p.image_path) { %><img class="thumb" src="/uploads/<%= p.image_path %>" alt=""><% } %>
+      <% if (p.text) { %><p class="post-text"><%= p.text.length > 280 ? p.text.slice(0, 280) + '…' : p.text %></p><% } %>
+      <% if (p.type === 'poll') { %><ul class="poll"><% p.poll_values.forEach(v => { %><li><%= v %></li><% }) %></ul><% } %>
+      <% if (p.status === 'failed' && p.error) { %><p class="error-text"><%= p.error %></p><% } %>
+      <% if (canEdit(p)) { %>
+      <div class="actions">
+        <% if (['scheduled', 'failed', 'cancelled'].includes(p.status)) { %><a href="/posts/<%= p.id %>/edit"><%= p.status === 'scheduled' ? 'Editar' : 'Reprogramar' %></a><% } %>
+        <a href="/posts/new?from=<%= p.id %>">Duplicar</a>
+        <% if (p.status === 'scheduled') { %>
+          <form method="post" action="/posts/<%= p.id %>/cancel"><button class="link">Cancelar</button></form>
+        <% } %>
+        <% if (p.status !== 'sending') { %>
+          <form method="post" action="/posts/<%= p.id %>/delete" onsubmit="return confirm('¿Borrar esta publicación?')"><button class="link danger">Borrar</button></form>
+        <% } %>
+      </div>
+      <% } %>
+    </div>
+  </article>
+<% }) %>
+<%- include('partials/foot') %>

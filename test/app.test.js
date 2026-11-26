@@ -1,0 +1,74 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { openDb } from '../src/db.js';
+import { createApp } from '../src/app.js';
+import { parseChannelInvite } from '../src/whatsapp.js';
+
+process.env.TZ = 'America/Argentina/Buenos_Aires';
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wcm-'));
+const db = openDb(':memory:');
+const wa = {
+  status: () => ({ state: 'open' }),
+  isConnected: () => true,
+  startLink: async () => {},
+  logout: async () => {},
+  resolveChannel: async () => ({ jid: '999@newsletter', name: 'Canal de prueba', invite: 'ABC' }),
+};
+const config = { uploadsDir: tmp, timezone: 'America/Argentina/Buenos_Aires', secureCookies: false };
+const server = createApp({ db, wa, config }).listen(0);
+const base = `http://127.0.0.1:${server.address().port}`;
+test.after(() => server.close());
+
+async function req(method, url, { body, cookie } = {}) {
+  const res = await fetch(base + url, {
+    method,
+    redirect: 'manual',
+    headers: { ...(body ? { 'content-type': 'application/x-www-form-urlencoded' } : {}), ...(cookie ? { cookie } : {}) },
+    body: body ? new URLSearchParams(body) : undefined,
+  });
+  return { res, text: await res.text(), cookie: res.headers.get('set-cookie')?.split(';')[0] };
+}
+
+test('flujo completo: alta de admin, canal, publicación y permisos', async () => {
+  assert.equal((await req('GET', '/posts')).res.headers.get('location'), '/login');
+  assert.equal((await req('GET', '/login')).res.headers.get('location'), '/setup');
+
+  const setup = await req('POST', '/setup', { body: { name: 'Thiago', username: 'thiago', password: 'secreto123' } });
+  const admin = setup.cookie;
+  assert.ok(admin);
+
+  await req('POST', '/numbers', { body: { label: 'Número 1' }, cookie: admin });
+  const add = await req('POST', '/numbers/1/channels', { body: { link: 'https://whatsapp.com/channel/ABC' }, cookie: admin });
+  assert.match(decodeURIComponent(add.res.headers.get('location')), /Canal de prueba/);
+
+  const bad = await req('POST', '/posts', { body: { channel_id: '1', type: 'poll', text: '¿Sí?', poll_options: 'Solo una', scheduled_at: '2030-01-01T10:00' }, cookie: admin });
+  assert.equal(bad.res.status, 400);
+  assert.match(bad.text, /entre 2 y 12 opciones/);
+
+  const ok = await req('POST', '/posts', { body: { channel_id: '1', type: 'text', text: 'Hola canal', scheduled_at: '2030-01-01T10:00' }, cookie: admin });
+  assert.equal(ok.res.status, 302);
+  const post = db.prepare('SELECT * FROM posts').get();
+  assert.equal(post.status, 'scheduled');
+  assert.equal(new Date(post.scheduled_at).toISOString(), '2030-01-01T13:00:00.000Z', 'hora de Buenos Aires');
+
+  // Una persona de contenidos no ve las publicaciones de otros ni las secciones de administración.
+  await req('POST', '/users', { body: { name: 'Ana', username: 'ana', password: 'secreto123', role: 'editor' }, cookie: admin });
+  const ana = (await req('POST', '/login', { body: { username: 'ana', password: 'secreto123' } })).cookie;
+  assert.doesNotMatch((await req('GET', '/posts', { cookie: ana })).text, /Hola canal/);
+  assert.equal((await req('GET', '/numbers', { cookie: ana })).res.status, 403);
+  assert.equal((await req('GET', `/posts/${post.id}/edit`, { cookie: ana })).res.status, 404);
+
+  await req('POST', '/posts', { body: { channel_id: '1', type: 'text', text: 'Post de Ana', scheduled_at: '2030-01-02T10:00' }, cookie: ana });
+  // El administrador ve todo.
+  const all = (await req('GET', '/posts', { cookie: admin })).text;
+  assert.match(all, /Hola canal/);
+  assert.match(all, /Post de Ana/);
+});
+
+test('reconoce links de canales', () => {
+  assert.equal(parseChannelInvite('https://whatsapp.com/channel/0029VaABCdef123'), '0029VaABCdef123');
+  assert.equal(parseChannelInvite('hola'), null);
+});

@@ -1,0 +1,12 @@
+services:
+  panel:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      TZ: America/Argentina/Buenos_Aires
+      # Poné "true" cuando el panel esté detrás de HTTPS (recomendado).
+      SECURE_COOKIES: "false"
+    volumes:
+      - ./data:/data

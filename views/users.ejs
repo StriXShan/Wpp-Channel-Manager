@@ -1,0 +1,47 @@
+<%- include('partials/head', { title: 'Usuarios' }) %>
+<div class="page-head"><h1>Usuarios</h1></div>
+
+<div class="card">
+  <h2>Sumar a alguien</h2>
+  <form method="post" action="/users" class="grid-form">
+    <label>Nombre <input name="name" required></label>
+    <label>Usuario <input name="username" required autocomplete="off"></label>
+    <label>Contraseña <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+    <label>Rol
+      <select name="role">
+        <option value="editor">Contenidos: carga y programa sus publicaciones</option>
+        <option value="admin">Administrador: ve todo, maneja números y usuarios</option>
+      </select>
+    </label>
+    <button class="primary">Crear usuario</button>
+  </form>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Programadas</th><th></th></tr></thead>
+    <tbody>
+    <% users.forEach(u => { %>
+      <tr>
+        <td><%= u.name %></td>
+        <td><%= u.username %></td>
+        <td><%= u.role === 'admin' ? 'Administrador' : 'Contenidos' %></td>
+        <td><a href="/posts?author=<%= u.id %>"><%= u.pending %></a></td>
+        <td class="actions">
+          <details>
+            <summary>Cambiar contraseña</summary>
+            <form method="post" action="/users/<%= u.id %>/password" class="row">
+              <input name="password" type="password" minlength="8" required placeholder="Nueva contraseña" autocomplete="new-password">
+              <button>Guardar</button>
+            </form>
+          </details>
+          <% if (u.id !== user.id) { %>
+            <form method="post" action="/users/<%= u.id %>/delete" onsubmit="return confirm('¿Borrar este usuario?')"><button class="link danger">Borrar</button></form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+<%- include('partials/foot') %>
