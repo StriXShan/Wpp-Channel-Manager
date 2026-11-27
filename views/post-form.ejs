@@ -43,7 +43,7 @@
       <label class="pill"><input type="radio" name="poll_kind" value="poll" <%= post.poll_correct === null || post.poll_correct === undefined ? 'checked' : '' %>> Encuesta</label>
       <label class="pill"><input type="radio" name="poll_kind" value="quiz" <%= post.poll_correct !== null && post.poll_correct !== undefined ? 'checked' : '' %>> Cuestionario (con respuesta correcta)</label>
     </fieldset>
-    <p class="muted small only-quiz">El cuestionario es experimental: WhatsApp no lo permite oficialmente por esta vía y hay que confirmarlo en la prueba con un canal real.</p>
+    <p class="muted small only-quiz">Los seguidores ven cuál es la respuesta correcta después de votar.</p>
 
     <label class="only-poll">Opciones (una por renglón, de 2 a 12)
       <textarea name="poll_options" rows="4" id="options-input"><%= (post.poll_values || []).join('\n') %></textarea>
