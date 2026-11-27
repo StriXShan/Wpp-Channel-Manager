@@ -11,9 +11,9 @@ function setup({ connected = true, failSend = false } = {}) {
   const sent = [];
   const wa = {
     isConnected: () => connected,
-    send: async (numberId, jid, content) => {
+    publish: async (numberId, jid, step) => {
       if (failSend) throw new Error('boom');
-      sent.push({ numberId, jid, content });
+      sent.push({ numberId, jid, step });
     },
   };
   let now = 1_000_000;
@@ -35,7 +35,7 @@ test('publica solo lo que ya venció, en orden', async () => {
   const b = t.addPost({ at: 900_000, text: 'segundo' });
   const a = t.addPost({ at: 800_000, text: 'primero' });
   await t.scheduler.tick();
-  assert.deepEqual(t.sent.map((s) => s.content.text), ['primero', 'segundo']);
+  assert.deepEqual(t.sent.map((s) => s.step.text), ['primero', 'segundo']);
   assert.equal(t.status(a).status, 'sent');
   assert.equal(t.status(b).status, 'sent');
   assert.equal(t.status(later).status, 'scheduled');
@@ -62,26 +62,30 @@ test('un error al enviar queda registrado', async () => {
   assert.match(t.status(id).error, /boom/);
 });
 
-test('arma los mensajes de imagen, encuesta, encuesta con imagen y cuestionario', () => {
-  const contents = (post) => buildMessages(post, '/up').map((s) => s.content);
-  assert.deepEqual(contents({ type: 'image', text: 'pie', image_path: 'a.jpg' }), [{ image: { url: path.join('/up', 'a.jpg') }, caption: 'pie' }]);
-  assert.deepEqual(contents({ type: 'poll', text: '¿Qué preferís?', poll_options: '["A","B","C"]', poll_multi: 0, poll_correct: null }), [
-    { poll: { name: '¿Qué preferís?', values: ['A', 'B', 'C'], selectableCount: 1 } },
+test('arma los pasos de imagen, encuesta, encuesta con imagen y cuestionario', () => {
+  const strip = (post) => buildMessages(post, '/up').map(({ label, ...rest }) => rest);
+  assert.deepEqual(strip({ type: 'image', text: 'pie', image_path: 'a.jpg' }), [
+    { kind: 'image', filePath: path.join('/up', 'a.jpg'), caption: 'pie' },
   ]);
-  const withImage = contents({ type: 'poll', text: '¿Cuál?', image_path: 'b.jpg', poll_options: '["A","B"]', poll_multi: 1, poll_correct: null });
-  assert.deepEqual(withImage, [{ image: { url: path.join('/up', 'b.jpg') } }, { poll: { name: '¿Cuál?', values: ['A', 'B'], selectableCount: 0 } }]);
+  assert.deepEqual(strip({ type: 'poll', text: '¿Qué preferís?', poll_options: '["A","B","C"]', poll_multi: 0, poll_correct: null }), [
+    { kind: 'poll', name: '¿Qué preferís?', values: ['A', 'B', 'C'], multi: false, correctIndex: null },
+  ]);
+  const withImage = strip({ type: 'poll', text: '¿Cuál?', image_path: 'b.jpg', poll_options: '["A","B"]', poll_multi: 1, poll_correct: null });
+  assert.deepEqual(withImage, [
+    { kind: 'image', filePath: path.join('/up', 'b.jpg'), caption: undefined },
+    { kind: 'poll', name: '¿Cuál?', values: ['A', 'B'], multi: true, correctIndex: null },
+  ]);
   const [quiz] = buildMessages({ type: 'poll', text: '2+2', poll_options: '["3","4"]', poll_correct: 1 }, '/up');
-  assert.equal(quiz.raw, true);
-  assert.equal(quiz.content.pollCreationMessageV5.pollType, 1);
-  assert.deepEqual(quiz.content.pollCreationMessageV5.correctAnswer, { optionName: '4' });
+  assert.equal(quiz.label, 'el cuestionario');
+  assert.equal(quiz.correctIndex, 1);
 });
 
 test('si falla la encuesta después de la imagen, lo avisa', async () => {
   const t = setup();
   let calls = 0;
-  t.scheduler.wa.send = async (n, j, content) => {
+  t.scheduler.wa.publish = async (n, j, step) => {
     calls++;
-    if (content.poll) throw new Error('rechazado');
+    if (step.kind === 'poll') throw new Error('rechazado');
   };
   const id = t.db
     .prepare(

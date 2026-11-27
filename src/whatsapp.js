@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import pino from 'pino';
 import QRCode from 'qrcode';
-import makeWASocket, { Browsers, DisconnectReason, proto, useMultiFileAuthState } from 'baileys';
+import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from 'baileys';
+import { sendNewsletterImage, sendNewsletterPoll, sendNewsletterText } from './newsletter.js';
 
 const logger = pino({ level: process.env.WA_LOG_LEVEL || 'warn' });
 
@@ -161,13 +162,13 @@ export class WhatsAppManager {
     };
   }
 
-  async send(numberId, jid, content) {
-    return this.socket(numberId).sendMessage(jid, content);
-  }
-
-  /** Envía un mensaje armado a mano (por ejemplo, un cuestionario). */
-  async sendRaw(numberId, jid, message) {
-    return this.socket(numberId).relayMessage(jid, proto.Message.fromObject(message), {});
+  /** Publica un paso (texto, imagen o encuesta) en un canal y espera que WhatsApp lo confirme. */
+  async publish(numberId, jid, step) {
+    const sock = this.socket(numberId);
+    if (step.kind === 'text') return sendNewsletterText(sock, jid, step.text);
+    if (step.kind === 'image') return sendNewsletterImage(sock, jid, step.filePath, step.caption);
+    if (step.kind === 'poll') return sendNewsletterPoll(sock, jid, step);
+    throw new Error(`Paso desconocido: ${step.kind}`);
   }
 }
 

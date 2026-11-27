@@ -1,41 +1,25 @@
-import crypto from 'node:crypto';
 import path from 'node:path';
 
 /**
- * Arma los mensajes de WhatsApp de una publicación. Casi siempre es uno solo;
- * una encuesta con imagen son dos seguidos: primero la imagen y abajo la encuesta.
- * `raw` indica un mensaje armado a mano (cuestionario), que no tiene atajo en Baileys.
+ * Arma los pasos de envío de una publicación. Casi siempre es uno solo; una
+ * encuesta con imagen son dos seguidos: primero la imagen y abajo la encuesta.
  */
 export function buildMessages(post, uploadsDir) {
-  if (post.type === 'text') return [{ label: 'el texto', content: { text: post.text } }];
-  if (post.type === 'image') {
-    return [{ label: 'la imagen', content: { image: { url: path.join(uploadsDir, post.image_path) }, caption: post.text || undefined } }];
-  }
+  const img = (caption) => ({ kind: 'image', label: 'la imagen', filePath: path.join(uploadsDir, post.image_path), caption });
+  if (post.type === 'text') return [{ kind: 'text', label: 'el texto', text: post.text }];
+  if (post.type === 'image') return [img(post.text || undefined)];
   if (post.type === 'poll') {
     const values = JSON.parse(post.poll_options || '[]');
-    const steps = [];
-    if (post.image_path) {
-      steps.push({ label: 'la imagen', content: { image: { url: path.join(uploadsDir, post.image_path) } } });
-    }
-    if (post.poll_correct !== null && post.poll_correct !== undefined) {
-      steps.push({
-        label: 'el cuestionario',
-        raw: true,
-        content: {
-          messageContextInfo: { messageSecret: crypto.randomBytes(32) },
-          pollCreationMessageV5: {
-            name: post.text,
-            options: values.map((optionName) => ({ optionName })),
-            selectableOptionsCount: 1,
-            pollType: 1, // QUIZ
-            correctAnswer: { optionName: values[post.poll_correct] },
-          },
-        },
-      });
-    } else {
-      // selectableCount 0 = se pueden elegir varias opciones.
-      steps.push({ label: 'la encuesta', content: { poll: { name: post.text, values, selectableCount: post.poll_multi ? 0 : 1 } } });
-    }
+    const quiz = post.poll_correct !== null && post.poll_correct !== undefined;
+    const steps = post.image_path ? [img(undefined)] : [];
+    steps.push({
+      kind: 'poll',
+      label: quiz ? 'el cuestionario' : 'la encuesta',
+      name: post.text,
+      values,
+      multi: Boolean(post.poll_multi),
+      correctIndex: quiz ? post.poll_correct : null,
+    });
     return steps;
   }
   throw new Error(`Tipo de publicación desconocido: ${post.type}`);
@@ -105,8 +89,7 @@ export class Scheduler {
       for (const [i, step] of steps.entries()) {
         if (i > 0) await new Promise((r) => setTimeout(r, 1500));
         try {
-          if (step.raw) await this.wa.sendRaw(post.number_id, post.jid, step.content);
-          else await this.wa.send(post.number_id, post.jid, step.content);
+          await this.wa.publish(post.number_id, post.jid, step);
         } catch (err) {
           err.step = step.label;
           throw err;
