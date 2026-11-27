@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="same-origin">
+  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>WCM</title>
+  <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#128c5e">
+  <script>
+    // Modo oscuro por defecto; se recuerda la elección en este navegador.
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('theme') || 'dark'; } catch (e) {}
+      document.documentElement.dataset.theme = t;
+    })();
+    function toggleTheme() {
+      var t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem('theme', t); } catch (e) {}
+    }
+  </script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<% if (user) { %>
+<header class="topbar">
+  <a class="brand" href="/posts"><img src="/static/logo.svg" alt="" width="30" height="30"><span>WCM <small>Wpp Channel Manager</small></span></a>
+  <nav>
+    <a href="/posts" class="<%= path.startsWith('/posts') ? 'active' : '' %>">Publicaciones</a>
+    <% if (user.role === 'admin') { %>
+      <a href="/numbers" class="<%= path.startsWith('/numbers') ? 'active' : '' %>">Números y canales</a>
+      <a href="/users" class="<%= path.startsWith('/users') ? 'active' : '' %>">Usuarios</a>
+    <% } %>
+  </nav>
+  <form method="post" action="/logout" class="logout">
+    <button type="button" class="theme-toggle" onclick="toggleTheme()" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar entre modo claro y oscuro"><span class="to-light">☀</span><span class="to-dark">☾</span></button>
+    <a class="muted" href="/account" title="Mi cuenta"><%= user.username %></a>
+    <button class="link">Salir</button>
+  </form>
+</header>
+<% } else { %>
+<button type="button" class="theme-toggle floating-toggle" onclick="toggleTheme()" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar entre modo claro y oscuro"><span class="to-light">☀</span><span class="to-dark">☾</span></button>
+<% } %>
+<main class="<%= user ? '' : 'narrow' %>">
+<% if (flash) { %><div class="notice ok"><%= flash %></div><% } %>
+<% if (flashError) { %><div class="notice error"><%= flashError %></div><% } %>

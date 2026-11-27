@@ -1,0 +1,53 @@
+<%- include('partials/head', { title: 'Números y canales' }) %>
+<div class="page-head"><h1>Números y canales</h1></div>
+
+<div class="card">
+  <h2>Agregar un número</h2>
+  <p class="muted">Usá números dedicados a esto, no tu WhatsApp personal. Vas a necesitar el celular de ese número para escanear el QR.</p>
+  <form method="post" action="/numbers" class="row">
+    <input name="label" placeholder="Nombre para reconocerlo (ej.: Número 1)" required>
+    <button class="primary">Agregar y escanear QR</button>
+  </form>
+</div>
+
+<% numbers.forEach(n => { %>
+<section class="card number">
+  <div class="page-head">
+    <div>
+      <h2><%= n.label %></h2>
+      <span class="muted"><%= n.phone ? '+' + n.phone : 'Sin número detectado' %></span>
+    </div>
+    <span class="badge state-<%= n.status.state %>"><%= NUMBER_STATES[n.status.state] || n.status.state %></span>
+  </div>
+  <% if (n.status.error) { %><p class="error-text"><%= n.status.error %></p><% } %>
+
+  <div class="actions">
+    <% if (n.status.state !== 'open') { %><a href="/numbers/<%= n.id %>/link">Escanear QR</a><% } %>
+    <% if (n.status.state === 'open' || n.status.state === 'connecting') { %>
+      <form method="post" action="/numbers/<%= n.id %>/logout" onsubmit="return confirm('¿Desvincular este número? Habrá que volver a escanear el QR.')"><button class="link">Desvincular</button></form>
+    <% } %>
+    <form method="post" action="/numbers/<%= n.id %>/delete" onsubmit="return confirm('¿Borrar este número con sus canales y publicaciones?')"><button class="link danger">Borrar</button></form>
+  </div>
+
+  <h3>Canales</h3>
+  <% if (!n.channels.length) { %><p class="muted">Todavía no agregaste canales para este número.</p><% } %>
+  <ul class="list">
+    <% n.channels.forEach(c => { %>
+      <li>
+        <span><%= c.name %></span>
+        <form method="post" action="/channels/<%= c.id %>/delete" onsubmit="return confirm('¿Quitar este canal? Se borran también sus publicaciones.')"><button class="link danger">Quitar</button></form>
+      </li>
+    <% }) %>
+  </ul>
+  <% if (n.status.state === 'open') { %>
+    <form method="post" action="/numbers/<%= n.id %>/channels" class="row">
+      <input name="link" placeholder="Link del canal: https://whatsapp.com/channel/…" required>
+      <button>Agregar canal</button>
+    </form>
+    <p class="muted small">En WhatsApp: abrí el canal, tocá el nombre y después "Compartir link". El número tiene que ser administrador del canal.</p>
+  <% } else { %>
+    <p class="muted small">Conectá el número para agregar canales.</p>
+  <% } %>
+</section>
+<% }) %>
+<%- include('partials/foot') %>
