@@ -31,7 +31,7 @@
   <% if (authors.length) { %>
   <select name="author">
     <option value="">Todas las personas</option>
-    <% authors.forEach(a => { %><option value="<%= a.id %>" <%= String(a.id) === filters.author ? 'selected' : '' %>><%= a.name %></option><% }) %>
+    <% authors.forEach(a => { %><option value="<%= a.id %>" <%= String(a.id) === filters.author ? 'selected' : '' %>><%= a.username %></option><% }) %>
   </select>
   <% } %>
   <button>Filtrar</button>

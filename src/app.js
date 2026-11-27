@@ -113,13 +113,13 @@ export function createApp({ db, wa, config }) {
     if (!setupTokenOk(req.body.setup_token)) {
       return res.status(403).render('setup', { error: 'El código de instalación no es correcto. Lo encontrás en los registros del servidor.' });
     }
-    const { name, username, password } = req.body;
-    if (!name || !username || !password || password.length < 8) {
+    const { username, password } = req.body;
+    if (!username || !password || password.length < 8) {
       return res.render('setup', { error: 'Completá todos los campos. La contraseña necesita al menos 8 caracteres.' });
     }
     const r = db
       .prepare("INSERT INTO users (username, name, password_hash, role, created_at) VALUES (?, ?, ?, 'admin', ?)")
-      .run(username.trim().toLowerCase(), name.trim(), hashPassword(password), Date.now());
+      .run(username.trim().toLowerCase(), username.trim().toLowerCase(), hashPassword(password), Date.now());
     createSession(db, res, r.lastInsertRowid, config.secureCookies);
     res.redirect('/numbers');
   });
@@ -254,7 +254,7 @@ export function createApp({ db, wa, config }) {
   const getPost = (id) =>
     db
       .prepare(
-        `SELECT p.*, c.name AS channel_name, c.number_id, n.label AS number_label, u.name AS author
+        `SELECT p.*, c.name AS channel_name, c.number_id, n.label AS number_label, u.username AS author
          FROM posts p JOIN channels c ON c.id = p.channel_id JOIN numbers n ON n.id = c.number_id
          LEFT JOIN users u ON u.id = p.created_by WHERE p.id = ?`
       )
@@ -285,7 +285,7 @@ export function createApp({ db, wa, config }) {
     const order = view === 'upcoming' ? 'p.scheduled_at ASC' : 'COALESCE(p.sent_at, p.scheduled_at) DESC';
     const posts = db
       .prepare(
-        `SELECT p.*, c.name AS channel_name, n.label AS number_label, u.name AS author
+        `SELECT p.*, c.name AS channel_name, n.label AS number_label, u.username AS author
          FROM posts p JOIN channels c ON c.id = p.channel_id JOIN numbers n ON n.id = c.number_id
          LEFT JOIN users u ON u.id = p.created_by
          ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY ${order} LIMIT 300`
@@ -305,7 +305,7 @@ export function createApp({ db, wa, config }) {
       posts,
       failedCount,
       channels: channelOptions(),
-      authors: req.user.role === 'admin' ? db.prepare('SELECT id, name FROM users ORDER BY name').all() : [],
+      authors: req.user.role === 'admin' ? db.prepare('SELECT id, username FROM users ORDER BY username').all() : [],
       filters: { author: req.query.author || '', channel: req.query.channel || '' },
       canEdit: (p) => canEdit(req.user, p),
     });
@@ -521,23 +521,23 @@ export function createApp({ db, wa, config }) {
   app.get('/users', requireAdmin, (req, res) => {
     const users = db
       .prepare(
-        `SELECT u.id, u.username, u.name, u.role, u.totp_secret IS NOT NULL AS has2fa,
+        `SELECT u.id, u.username, u.role, u.totp_secret IS NOT NULL AS has2fa,
          (SELECT COUNT(*) FROM posts p WHERE p.created_by = u.id AND p.status = 'scheduled') AS pending
-         FROM users u ORDER BY u.name`
+         FROM users u ORDER BY u.username`
       )
       .all();
     res.render('users', { users });
   });
 
   app.post('/users', requireAdmin, (req, res) => {
-    const { name, username, password } = req.body;
+    const { username, password } = req.body;
     const role = req.body.role === 'admin' ? 'admin' : 'editor';
-    if (!name || !username || !password || password.length < 8) {
+    if (!username || !password || password.length < 8) {
       return back(res, '/users', 'Completá todos los campos. La contraseña necesita al menos 8 caracteres.', true);
     }
     try {
       db.prepare('INSERT INTO users (username, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)').run(
-        username.trim().toLowerCase(), name.trim(), hashPassword(password), role, Date.now()
+        username.trim().toLowerCase(), username.trim().toLowerCase(), hashPassword(password), role, Date.now()
       );
     } catch {
       return back(res, '/users', 'Ya existe un usuario con ese nombre de usuario.', true);

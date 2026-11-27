@@ -17,12 +17,11 @@
 
   <% if (!list.length) { %><p class="muted"><%= g.empty %></p><% } else { %>
   <table class="table">
-    <thead><tr><th>Nombre</th><th>Usuario</th><th>Dos pasos</th><th>Programadas</th><th></th></tr></thead>
+    <thead><tr><th>Usuario</th><th>Dos pasos</th><th>Programadas</th><th></th></tr></thead>
     <tbody>
     <% list.forEach(u => { %>
       <tr>
-        <td><%= u.name %><% if (u.id === user.id) { %> <span class="muted">(vos)</span><% } %></td>
-        <td><%= u.username %></td>
+        <td><%= u.username %><% if (u.id === user.id) { %> <span class="muted">(vos)</span><% } %></td>
         <td><%= u.has2fa ? 'Activada' : 'No' %></td>
         <td><a href="/posts?author=<%= u.id %>"><%= u.pending %></a></td>
         <td class="actions">
@@ -54,7 +53,6 @@
     <summary><%= g.add %></summary>
     <form method="post" action="/users" class="grid-form">
       <input type="hidden" name="role" value="<%= g.role %>">
-      <label>Nombre <input name="name" required></label>
       <label>Usuario <input name="username" required autocomplete="off"></label>
       <label>Contraseña <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
       <button class="primary">Crear</button>
