@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { openDb } from '../src/db.js';
 import { Scheduler, buildMessages } from '../src/scheduler.js';
 
@@ -63,12 +64,12 @@ test('un error al enviar queda registrado', async () => {
 
 test('arma los mensajes de imagen, encuesta, encuesta con imagen y cuestionario', () => {
   const contents = (post) => buildMessages(post, '/up').map((s) => s.content);
-  assert.deepEqual(contents({ type: 'image', text: 'pie', image_path: 'a.jpg' }), [{ image: { url: '/up/a.jpg' }, caption: 'pie' }]);
+  assert.deepEqual(contents({ type: 'image', text: 'pie', image_path: 'a.jpg' }), [{ image: { url: path.join('/up', 'a.jpg') }, caption: 'pie' }]);
   assert.deepEqual(contents({ type: 'poll', text: '¿Qué preferís?', poll_options: '["A","B","C"]', poll_multi: 0, poll_correct: null }), [
     { poll: { name: '¿Qué preferís?', values: ['A', 'B', 'C'], selectableCount: 1 } },
   ]);
   const withImage = contents({ type: 'poll', text: '¿Cuál?', image_path: 'b.jpg', poll_options: '["A","B"]', poll_multi: 1, poll_correct: null });
-  assert.deepEqual(withImage, [{ image: { url: '/up/b.jpg' } }, { poll: { name: '¿Cuál?', values: ['A', 'B'], selectableCount: 0 } }]);
+  assert.deepEqual(withImage, [{ image: { url: path.join('/up', 'b.jpg') } }, { poll: { name: '¿Cuál?', values: ['A', 'B'], selectableCount: 0 } }]);
   const [quiz] = buildMessages({ type: 'poll', text: '2+2', poll_options: '["3","4"]', poll_correct: 1 }, '/up');
   assert.equal(quiz.raw, true);
   assert.equal(quiz.content.pollCreationMessageV5.pollType, 1);
