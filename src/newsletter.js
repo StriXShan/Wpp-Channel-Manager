@@ -23,7 +23,8 @@ const ACK_TIMEOUT_MS = 20000;
 
 /** Espera la confirmación del servidor para el mensaje `id`. */
 export function waitForAck(sock, id, timeoutMs = ACK_TIMEOUT_MS) {
-  return new Promise((resolve, reject) => {
+  let cancel;
+  const promise = new Promise((resolve, reject) => {
     const onAck = (node) => {
       if (node?.attrs?.id !== id) return;
       cleanup();
@@ -44,11 +45,32 @@ export function waitForAck(sock, id, timeoutMs = ACK_TIMEOUT_MS) {
       sock.ws.off('CB:ack,class:message', onAck);
     };
     sock.ws.on('CB:ack,class:message', onAck);
+    cancel = cleanup;
   });
+  // Deja de esperar sin rechazar (para cuando el envío mismo ya falló).
+  promise.cancel = cancel;
+  return promise;
 }
 
 function newId(sock) {
   return generateMessageIDV2(sock.user?.id);
+}
+
+/**
+ * Manda con `send()` y espera la confirmación del mensaje `id`. La espera se
+ * arma antes de mandar para no perder un ack rápido; si el envío falla se
+ * cancela, porque si no su rechazo 20 segundos después tumba el proceso.
+ */
+async function sendAndConfirm(sock, id, send) {
+  const ack = waitForAck(sock, id);
+  try {
+    await send();
+  } catch (err) {
+    ack.cancel();
+    throw err;
+  }
+  await ack;
+  return id;
 }
 
 /** Manda un mensaje armado a mano a un canal y espera la confirmación. */
@@ -60,10 +82,7 @@ async function sendStanza(sock, jid, message, { type, mediaType, mediaId, extraN
     attrs: { to: jid, id, type, ...(mediaId ? { media_id: mediaId } : {}) },
     content: [plaintext, ...extraNodes],
   };
-  const ack = waitForAck(sock, id);
-  await sock.sendNode(stanza);
-  await ack;
-  return id;
+  return sendAndConfirm(sock, id, () => sock.sendNode(stanza));
 }
 
 /** Sube una imagen para un canal (sin cifrar, como hace WhatsApp Web). */
@@ -95,10 +114,7 @@ async function uploadNewsletterImage(sock, buffer) {
 /** El texto sale bien con Baileys; solo se agrega la espera de confirmación. */
 export async function sendNewsletterText(sock, jid, text) {
   const id = newId(sock);
-  const ack = waitForAck(sock, id);
-  await sock.sendMessage(jid, { text }, { messageId: id });
-  await ack;
-  return id;
+  return sendAndConfirm(sock, id, () => sock.sendMessage(jid, { text }, { messageId: id }));
 }
 
 export async function sendNewsletterImage(sock, jid, filePath, caption) {

@@ -98,3 +98,24 @@ test('verificación en dos pasos al entrar', async () => {
   assert.ok(ok.cookie);
   assert.equal((await req('GET', '/robots.txt')).text, 'User-agent: *\nDisallow: /\n');
 });
+
+test('revisión: imagen inventada, horario pasado y publicación ya enviada', async () => {
+  const admin = (await req('POST', '/login', { body: { username: 'thiago', password: 'secreto123' } })).cookie;
+  // Un nombre de imagen armado a mano no se guarda ni se pinta en la página.
+  const evil = 'x" onerror="alert(1)';
+  const r = await req('POST', '/posts', { body: { channel_id: '1', type: 'image', keep_image: evil, scheduled_at: '2030-01-03T10:00' }, cookie: admin });
+  assert.equal(r.res.status, 400);
+  assert.doesNotMatch(r.text, /onerror/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM posts WHERE image_path LIKE ?').get('%onerror%').n, 0);
+
+  // Un horario que ya pasó se rechaza (salvo "Publicar ahora").
+  const past = await req('POST', '/posts', { body: { channel_id: '1', type: 'text', text: 'Viejo', scheduled_at: '2020-01-01T10:00' }, cookie: admin });
+  assert.equal(past.res.status, 400);
+  assert.match(past.text, /ya pasó/);
+
+  // Una publicación que ya salió no vuelve a la cola aunque llegue un formulario viejo.
+  const id = db.prepare("SELECT id FROM posts WHERE text = 'Hola canal'").get().id;
+  db.prepare("UPDATE posts SET status = 'sent' WHERE id = ?").run(id);
+  await req('POST', `/posts/${id}`, { body: { channel_id: '1', type: 'text', text: 'Hola canal', scheduled_at: '2030-01-01T10:00' }, cookie: admin });
+  assert.equal(db.prepare('SELECT status FROM posts WHERE id = ?').get(id).status, 'sent');
+});

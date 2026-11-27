@@ -33,8 +33,12 @@ export function createSession(db, res, userId, secure) {
   });
 }
 
+export function currentSession(req) {
+  return parseCookies(req.headers.cookie)[COOKIE] || '';
+}
+
 export function destroySession(db, req, res) {
-  const token = parseCookies(req.headers.cookie)[COOKIE];
+  const token = currentSession(req);
   if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
   res.clearCookie(COOKIE);
 }

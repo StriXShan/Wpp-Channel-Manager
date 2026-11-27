@@ -19,6 +19,8 @@ export const config = {
   maxDelayMinutes: Number(process.env.MAX_DELAY_MINUTES || 15),
   schedulerIntervalMs: Number(process.env.SCHEDULER_INTERVAL_MS || 20000),
   secureCookies: process.env.SECURE_COOKIES === 'true',
+  // De qué direcciones se acepta X-Forwarded-For (la IP real detrás de un proxy).
+  trustProxy: process.env.TRUST_PROXY || 'loopback',
   // Código para crear el primer administrador. Si no se define, se genera uno
   // al arrancar y se muestra en los registros del servidor.
   setupToken: process.env.SETUP_TOKEN || crypto.randomBytes(9).toString('base64url'),

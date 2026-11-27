@@ -84,6 +84,7 @@ Límites: WhatsApp sabe qué números administran cada canal y el proveedor del 
 | `MAX_DELAY_MINUTES` | `15` | Cuánto se reintenta una publicación si el número está desconectado |
 | `SECURE_COOKIES` | `false` | `true` si el panel está detrás de HTTPS |
 | `SETUP_TOKEN` | se genera al arrancar | Código para crear el primer administrador |
+| `TRUST_PROXY` | `loopback` | Desde dónde se acepta la IP real que manda el proxy (Caddy/Nginx). Con Docker y el proxy en el mismo VPS usá `loopback, uniquelocal`; si no, todos los ingresos parecen venir de la misma IP y el bloqueo por intentos fallidos los afecta a todos |
 
 ## Tests
 

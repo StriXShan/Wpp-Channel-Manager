@@ -48,3 +48,10 @@ test('sin confirmación a tiempo, falla', async () => {
   const sock = { ws: new EventEmitter() };
   await assert.rejects(waitForAck(sock, 'abc', 20), /no confirmó/);
 });
+
+test('si falla el envío, se deja de esperar el ack (no tumba el proceso después)', async () => {
+  const sock = fakeSock(() => ({}));
+  sock.sendNode = async () => { throw new Error('socket cerrado'); };
+  await assert.rejects(sendNewsletterPoll(sock, '1@newsletter', { name: 'x', values: ['A', 'B'] }), /socket cerrado/);
+  assert.equal(sock.ws.listenerCount('CB:ack,class:message'), 0);
+});

@@ -125,6 +125,9 @@ export class WhatsAppManager {
   async logout(numberId) {
     const e = this.entries.get(numberId);
     const sock = e?.sock;
+    // Se suelta el socket antes de cerrarlo: así su aviso de "conexión cerrada"
+    // se ignora y no intenta reconectar un número que se está desvinculando.
+    if (e) e.sock = null;
     this.entries.delete(numberId);
     if (sock) {
       try {

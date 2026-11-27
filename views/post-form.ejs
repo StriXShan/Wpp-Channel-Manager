@@ -67,7 +67,7 @@
     <div class="muted small">Vista previa</div>
     <div class="phone">
       <div class="bubble">
-        <img id="pv-image" alt="" <%- post.image_path ? `src="/uploads/${post.image_path}"` : '' %>>
+        <img id="pv-image" alt=""<% if (post.image_path) { %> src="/uploads/<%= post.image_path %>"<% } %>>
         <div id="pv-text"></div>
         <ul id="pv-poll" class="poll"></ul>
       </div>

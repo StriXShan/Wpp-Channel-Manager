@@ -7,6 +7,7 @@ import multer from 'multer';
 import {
   checkPassword,
   createSession,
+  currentSession,
   destroySession,
   hashPassword,
   loadUser,
@@ -62,7 +63,8 @@ export function createApp({ db, wa, config }) {
   app.set('views', path.join(root, 'views'));
   app.disable('x-powered-by');
   // Detrás de Caddy o Nginx en el mismo servidor, para ver la IP real.
-  app.set('trust proxy', 'loopback');
+  // Con Docker el proxy llega desde la red interna: ver TRUST_PROXY en el README.
+  app.set('trust proxy', config.trustProxy || 'loopback');
   app.use(securityHeaders);
   app.use(sameOrigin);
   app.use(express.urlencoded({ extended: false }));
@@ -131,6 +133,7 @@ export function createApp({ db, wa, config }) {
   });
 
   const limiter = new LoginLimiter();
+  const DUMMY_HASH = hashPassword(crypto.randomBytes(12).toString('hex'));
 
   app.post('/login', (req, res) => {
     const username = String(req.body.username || '').trim().toLowerCase();
@@ -138,7 +141,9 @@ export function createApp({ db, wa, config }) {
       return res.status(429).render('login', { error: 'Demasiados intentos fallidos. Esperá 15 minutos y probá de nuevo.' });
     }
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!user || !checkPassword(String(req.body.password || ''), user.password_hash)) {
+    // Con un usuario inexistente se compara igual contra un hash de relleno,
+    // así la demora no delata qué usuarios existen.
+    if (!checkPassword(String(req.body.password || ''), user?.password_hash || DUMMY_HASH) || !user) {
       limiter.fail(req.ip, username);
       return res.status(401).render('login', { error: 'Usuario o contraseña incorrectos.' });
     }
@@ -146,6 +151,7 @@ export function createApp({ db, wa, config }) {
     if (user.totp_secret) {
       // Contraseña correcta: falta el código de la app de verificación.
       const token = crypto.randomBytes(24).toString('hex');
+      for (const [t, p] of pending2fa) if (p.expires < Date.now()) pending2fa.delete(t);
       pending2fa.set(token, { userId: user.id, username, expires: Date.now() + 5 * 60000 });
       return res.render('login-2fa', { token, error: null });
     }
@@ -224,7 +230,9 @@ export function createApp({ db, wa, config }) {
     }
     if (next.length < 8) return back(res, '/account', 'La nueva contraseña necesita al menos 8 caracteres.', true);
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(next), req.user.id);
-    back(res, '/account', 'Contraseña cambiada.');
+    // Si alguien tenía la contraseña vieja y una sesión abierta, queda afuera.
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(req.user.id, currentSession(req));
+    back(res, '/account', 'Contraseña cambiada. Se cerraron tus sesiones en otros dispositivos.');
   });
 
   app.post('/logout', (req, res) => {
@@ -248,6 +256,11 @@ export function createApp({ db, wa, config }) {
          JOIN numbers n ON n.id = c.number_id ORDER BY n.label, c.name`
       )
       .all();
+
+  // Solo se aceptan nombres de imagen generados por el panel y que existan en
+  // la carpeta de subidas: el campo viene del formulario y no es confiable.
+  const UPLOAD_NAME = /^\d+-[0-9a-f]{12}\.(jpg|png|webp)$/;
+  const validUpload = (name) => UPLOAD_NAME.test(name) && fs.existsSync(path.join(config.uploadsDir, name));
 
   const canEdit = (user, post) => user.role === 'admin' || post.created_by === user.id;
 
@@ -338,7 +351,7 @@ export function createApp({ db, wa, config }) {
       .filter(Boolean);
     let imagePath = existing?.image_path || null;
     if (req.file) imagePath = req.file.filename;
-    else if (b.keep_image) imagePath = path.basename(b.keep_image);
+    else if (b.keep_image) imagePath = validUpload(String(b.keep_image)) ? String(b.keep_image) : null;
     if (!req.file && b.remove_image) imagePath = null;
 
     const post = {
@@ -357,6 +370,9 @@ export function createApp({ db, wa, config }) {
     let error = null;
     if (!channel) error = 'Elegí un canal.';
     else if (Number.isNaN(when)) error = 'Elegí día y hora.';
+    else if (b.action !== 'now' && when < Date.now() - 60000) {
+      error = 'Ese horario ya pasó. Elegí uno nuevo o tocá "Publicar ahora".';
+    }
     else if (type === 'text' && !text) error = 'Escribí el texto de la publicación.';
     else if (type === 'image' && !post.image_path) error = 'Subí una imagen (JPG, PNG o WEBP, hasta 10 MB).';
     else if (type === 'poll' && !text) error = 'Escribí la pregunta de la encuesta.';
@@ -384,7 +400,7 @@ export function createApp({ db, wa, config }) {
     } catch {
       await fs.promises.unlink(req.file.path).catch(() => {});
       req.file = null;
-      back(res, req.originalUrl === '/posts' ? '/posts/new' : `/posts`, 'No se pudo leer la imagen. Probá con otro archivo.', true);
+      back(res, req.params.id ? `/posts/${Number(req.params.id)}/edit` : '/posts/new', 'No se pudo leer la imagen. Probá con otro archivo.', true);
     }
   };
 
@@ -426,17 +442,19 @@ export function createApp({ db, wa, config }) {
     if (publishNow(req.body)) req.body.scheduled_at = new Date().toISOString();
     const { post, error } = readPostForm(req, existing);
     if (error) return res.status(400).render('post-form', { post, channels: channelOptions(), error, duplicated: false });
-    db.prepare(
+    const r = db.prepare(
       `UPDATE posts SET channel_id = ?, type = ?, text = ?, image_path = ?, poll_options = ?, poll_multi = ?, poll_correct = ?,
-       scheduled_at = ?, status = 'scheduled', error = NULL, updated_at = ? WHERE id = ? AND status != 'sending'`
+       scheduled_at = ?, status = 'scheduled', error = NULL, updated_at = ? WHERE id = ? AND status IN ('scheduled', 'failed', 'cancelled')`
     ).run(post.channel_id, post.type, post.text, post.image_path, post.poll_options, post.poll_multi, post.poll_correct, post.scheduled_at, Date.now(), existing.id);
+    if (r.changes === 0) return back(res, '/posts', 'No se guardó: la publicación se empezó a enviar recién.', true);
     back(res, '/posts', 'Cambios guardados.');
   });
 
   app.post('/posts/:id/cancel', requireLogin, (req, res) => {
     const post = loadOwnPost(req, res);
     if (!post) return;
-    db.prepare("UPDATE posts SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'scheduled'").run(Date.now(), post.id);
+    const r = db.prepare("UPDATE posts SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'scheduled'").run(Date.now(), post.id);
+    if (r.changes === 0) return back(res, '/posts', 'Ya no se puede cancelar: se está enviando o ya salió.', true);
     back(res, '/posts', 'Publicación cancelada.');
   });
 
